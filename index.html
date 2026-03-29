@@ -8,8 +8,6 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    html, body { height: 100vh; }
-
     :root {
       --bg:        #0a0a0a;
       --surface:   #141414;
@@ -27,6 +25,7 @@
       background: var(--bg);
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
     }
@@ -48,9 +47,9 @@
     /* ── MAIN LAYOUT ────────────────────────────────── */
     main {
       flex: 1;
-      min-height: 0;
       display: grid;
       grid-template-columns: 380px 1fr;
+      overflow: hidden;
     }
 
     /* ── LEFT PANEL ─────────────────────────────────── */
@@ -242,10 +241,9 @@
     .panel-right {
       display: flex; align-items: center; justify-content: center;
       background: var(--bg); padding: 2rem; overflow: hidden;
-      min-height: 0;
     }
     canvas#vinylCanvas {
-      display: block; max-width: 100%; max-height: calc(100vh - 120px);
+      display: block; max-width: 100%; max-height: calc(100vh - 130px);
       width: auto; height: auto; border-radius: 4px;
     }
 
