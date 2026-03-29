@@ -40,15 +40,17 @@
       background: var(--surface);
       flex-shrink: 0;
     }
-    .logo { font-size: 1.4rem; font-weight: 800; letter-spacing: -0.04em; }
-    .logo em { font-style: normal; color: var(--accent); }
+    .logo { font-size: 1.4rem; font-weight: 800; letter-spacing: -0.04em; color: var(--text); }
+    .logo em { font-style: normal; color: var(--text); }
     .tagline { font-size: 0.8rem; color: var(--text-muted); }
 
     /* ── MAIN LAYOUT ────────────────────────────────── */
     main {
       flex: 1;
+      min-height: 0;
       display: grid;
       grid-template-columns: 380px 1fr;
+      grid-template-rows: 1fr;
       overflow: hidden;
     }
 
@@ -268,7 +270,7 @@
     }
     .toast.show { transform: translateX(-50%) translateY(0); }
 
-    @media (max-width: 800px) {
+    @media (max-width: 600px) {
       main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
       .panel-left { border-right: none; border-bottom: 1px solid var(--border); overflow-y: visible; }
       canvas#vinylCanvas { max-height: 55vw; }
