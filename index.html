@@ -273,7 +273,28 @@
       .panel-left { border-right: none; border-bottom: 1px solid var(--border); overflow-y: visible; }
       canvas#vinylCanvas { max-height: 55vw; }
     }
+
+    /* ── BG / FG IMAGE UPLOAD ───────────────────────────── */
+    .img-upload-mini {
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      background: var(--surface3); border: 1px solid var(--border);
+      color: var(--text-muted); font-size: 0.7rem; font-weight: 600;
+      padding: 0.28rem 0.65rem; border-radius: 6px; cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+      position: relative; overflow: hidden; white-space: nowrap; max-width: 130px;
+    }
+    .img-upload-mini:hover { border-color: var(--accent); color: var(--accent); }
+    .img-upload-mini.has-file { border-color: var(--accent); color: var(--accent); }
+    .img-upload-mini input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .btn-clear-mini {
+      background: none; border: none; color: var(--text-dim);
+      font-size: 0.78rem; cursor: pointer; padding: 0 0.15rem; line-height: 1;
+    }
+    .btn-clear-mini:hover { color: var(--danger); }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@4.5.1/build/mp4-muxer.min.js"></script>
 </head>
 <body>
 
@@ -416,6 +437,28 @@
       </div>
 
       <div class="setting-row">
+        <span class="setting-label">Bg image</span>
+        <div class="setting-control">
+          <label class="img-upload-mini" id="bgImgZone">
+            <input type="file" id="bgImgInput" accept="image/png,image/jpeg,image/jpg,image/webp">
+            <span id="bgImgLabel">Upload</span>
+          </label>
+          <button class="btn-clear-mini" id="bgImgClear" title="Remove" style="display:none">&#x2715;</button>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <span class="setting-label">Fg image</span>
+        <div class="setting-control">
+          <label class="img-upload-mini" id="fgImgZone">
+            <input type="file" id="fgImgInput" accept="image/png,image/jpeg,image/jpg,image/webp">
+            <span id="fgImgLabel">Upload</span>
+          </label>
+          <button class="btn-clear-mini" id="fgImgClear" title="Remove" style="display:none">&#x2715;</button>
+        </div>
+      </div>
+
+      <div class="setting-row">
         <span class="setting-label">Speed (RPM)</span>
         <div class="setting-control">
           <input type="range" id="rpmSlider" min="5" max="120" value="33" step="1">
@@ -476,7 +519,7 @@
 </main>
 
 <footer>
-  <div class="footer-note">Chrome / Edge 94+ required · MP4 H.264 · up to 16 Mbps · no watermark</div>
+  <div class="footer-note">Chrome / Edge 94+ required · MP4 H.264 CFR 30fps · up to 16 Mbps · no watermark</div>
   <div class="footer-tip"><strong>Tip:</strong> Square photos give the cleanest disc look.</div>
 </footer>
 
@@ -501,6 +544,8 @@ const S = {
   silentDuration: 30,    // seconds used when no audio
   trimStart:      0,     // 0–1 fraction of audioDuration
   trimEnd:        1,     // 0–1 fraction of audioDuration
+  bgImage:        null,  // HTMLImageElement — background image (behind disc)
+  fgImage:        null,  // HTMLImageElement — foreground image (in front of disc)
 };
 
 // ── DOM REFS ───────────────────────────────────────────────
@@ -533,20 +578,30 @@ const trimDuration  = document.getElementById("trimDuration");
 const btnPreview    = document.getElementById("btnPreview");
 const durationRow   = document.getElementById("durationRow");
 const durationCtrl  = document.getElementById("durationControl");
+const bgImgInput    = document.getElementById("bgImgInput");
+const bgImgZone     = document.getElementById("bgImgZone");
+const bgImgLabel    = document.getElementById("bgImgLabel");
+const bgImgClear    = document.getElementById("bgImgClear");
+const fgImgInput    = document.getElementById("fgImgInput");
+const fgImgZone     = document.getElementById("fgImgZone");
+const fgImgLabel    = document.getElementById("fgImgLabel");
+const fgImgClear    = document.getElementById("fgImgClear");
 
 let albumArt        = null;
 let animId          = null;
 let animStartTs     = null;
 
-// Recording
-let mediaRecorder   = null;
-let recChunks       = [];
-let recMime         = "";
-let audioCtxRec     = null;
-let recordStart     = null;
-let progressTimer   = null;
-let lastBlob        = null;
-let lastBlobUrl     = null;
+// Recording — WebCodecs + mp4-muxer (CFR, no VFR jitter)
+const REC_FPS      = 30;
+let videoEncoder   = null;
+let audioEncoder   = null;
+let muxer          = null;
+let recFrameCount  = 0;
+let recTotalFrames = 0;
+let recLastFrameTs = 0;
+let audioFileRef   = null;
+let lastBlob       = null;
+let lastBlobUrl    = null;
 
 // Waveform
 let waveformPeaks   = [];
@@ -572,6 +627,14 @@ function draw() {
 
   ctx.fillStyle = S.bgColor;
   ctx.fillRect(0, 0, W, H);
+
+  // Background image (cover-fit, drawn over bgColor)
+  if (S.bgImage) {
+    const iw = S.bgImage.naturalWidth  || S.bgImage.width;
+    const ih = S.bgImage.naturalHeight || S.bgImage.height;
+    const sc = Math.max(W / iw, H / ih);
+    ctx.drawImage(S.bgImage, (W - iw * sc) / 2, (H - ih * sc) / 2, iw * sc, ih * sc);
+  }
 
   // Static drop shadow
   ctx.save();
@@ -631,13 +694,21 @@ function draw() {
   // Center spindle hole
   ctx.beginPath();
   ctx.arc(0, 0, holeR, 0, Math.PI * 2);
-  ctx.fillStyle   = S.bgColor;
+  ctx.fillStyle   = S.bgImage ? "#0a0a0a" : S.bgColor;
   ctx.fill();
   ctx.strokeStyle = "rgba(255,255,255,0.22)";
   ctx.lineWidth   = 0.8;
   ctx.stroke();
 
   ctx.restore();
+
+  // Foreground image (cover-fit, drawn on top of disc)
+  if (S.fgImage) {
+    const iw = S.fgImage.naturalWidth  || S.fgImage.width;
+    const ih = S.fgImage.naturalHeight || S.fgImage.height;
+    const sc = Math.max(W / iw, H / ih);
+    ctx.drawImage(S.fgImage, (W - iw * sc) / 2, (H - ih * sc) / 2, iw * sc, ih * sc);
+  }
 }
 
 // ── ANIMATION LOOP ─────────────────────────────────────────
@@ -647,6 +718,29 @@ function animLoop(ts) {
   const elapsed = ts - animStartTs;
   S.angle = (elapsed * S.rpm * 360 / 60000) % 360;
   draw();
+
+  // Capture frame for WebCodecs encoder if recording
+  if (S.isRecording && videoEncoder && videoEncoder.state === "configured") {
+    if (recFrameCount === 0 || ts - recLastFrameTs >= (1000 / REC_FPS) - 1) {
+      const vts = Math.round(recFrameCount * (1_000_000 / REC_FPS));
+      try {
+        const frame = new VideoFrame(canvas, { timestamp: vts });
+        videoEncoder.encode(frame, { keyFrame: recFrameCount % REC_FPS === 0 });
+        frame.close();
+      } catch (_) {}
+      recLastFrameTs = ts;
+      recFrameCount++;
+
+      const recDur = S.audioLoaded
+        ? (S.trimEnd - S.trimStart) * S.audioDuration
+        : S.silentDuration;
+      progressFill.style.width  = Math.min(recFrameCount / recTotalFrames * 100, 100) + "%";
+      progressLabel.textContent = fmt(recFrameCount / REC_FPS) + " / " + fmt(recDur);
+
+      if (recFrameCount >= recTotalFrames) stopRecording();
+    }
+  }
+
   animId = requestAnimationFrame(animLoop);
 }
 
@@ -677,6 +771,7 @@ function loadImg(file) {
 // ── AUDIO LOAD + WAVEFORM ──────────────────────────────────
 function loadAudio(file) {
   if (!file) return;
+  audioFileRef = file;
 
   const objectUrl = URL.createObjectURL(file);
   audioEl.src = objectUrl;
@@ -901,140 +996,179 @@ function setStatus(cls, msg) {
 // Uses MediaRecorder with video/mp4 (Chrome 130+) or webm fallback.
 // canvas.captureStream() feeds the video track automatically.
 
-function pickMime() {
-  const candidates = [
-    "video/mp4;codecs=avc1,mp4a.40.2",
-    "video/mp4;codecs=avc1",
-    "video/mp4",
-    "video/webm;codecs=vp9,opus",
-    "video/webm;codecs=vp8,opus",
-    "video/webm",
-  ];
-  return candidates.find(m => {
-    try { return MediaRecorder.isTypeSupported(m); } catch(_) { return false; }
-  }) || null;
-}
+// ── RECORDING — WebCodecs VideoEncoder + mp4-muxer (smooth CFR output) ────
+// Replaces MediaRecorder which produced variable frame rate (VFR) causing
+// jerky rotation on playback. VideoEncoder captures frames at exact 30fps
+// intervals driven by requestAnimationFrame, guaranteeing constant frame rate.
 
 async function startRecording() {
   if (S.isRecording || !S.imageLoaded) return;
 
-  const mime = pickMime();
-  if (!mime) { showToast("MediaRecorder not supported — use Chrome or Edge."); return; }
+  if (typeof VideoEncoder === "undefined") {
+    showToast("WebCodecs not supported — use Chrome or Edge 94+.");
+    return;
+  }
 
   stopPreview();
   btnDownload.style.display = "none";
   lastBlob    = null;
   lastBlobUrl = null;
 
-  // Duration
-  const recDuration = S.audioLoaded
+  const recDuration  = S.audioLoaded
     ? (S.trimEnd - S.trimStart) * S.audioDuration
     : S.silentDuration;
 
-  // Video stream from canvas
-  const canvasStream = canvas.captureStream(60);
-  const tracks       = [...canvasStream.getVideoTracks()];
+  recFrameCount  = 0;
+  recTotalFrames = Math.ceil(recDuration * REC_FPS);
+  recLastFrameTs = 0;
 
-  // Audio routing
-  if (S.audioLoaded) {
-    if (audioCtxRec) { try { await audioCtxRec.close(); } catch(_) {} }
-    audioCtxRec       = new (window.AudioContext || window.webkitAudioContext)();
-    const src         = audioCtxRec.createMediaElementSource(audioEl);
-    const dest        = audioCtxRec.createMediaStreamDestination();
-    src.connect(dest);
-    src.connect(audioCtxRec.destination);
-    tracks.push(...dest.stream.getAudioTracks());
-  }
-
-  const combined = new MediaStream(tracks);
-
-  // Bitrate scaled to resolution
   const px  = S.canvasW * S.canvasH;
   const bps = px >= 1920 * 1080 ? 16_000_000 : px >= 1080 * 1080 ? 10_000_000 : 6_000_000;
 
-  recChunks = [];
-  recMime   = mime;
+  // Decode audio and check AAC encoder support
+  let audioBuffer = null;
+  let audioSR     = 44100;
+  let audioCH     = 2;
+  let useAudio    = false;
 
-  try {
-    mediaRecorder = new MediaRecorder(combined, { mimeType: mime, videoBitsPerSecond: bps });
-  } catch (e) {
-    // Some builds ignore videoBitsPerSecond with mp4; retry without it
-    mediaRecorder = new MediaRecorder(combined, { mimeType: mime });
+  if (S.audioLoaded && audioFileRef) {
+    try {
+      const arrayBuf = await audioFileRef.arrayBuffer();
+      const offCtx   = new OfflineAudioContext(2, 44100, 44100);
+      audioBuffer    = await offCtx.decodeAudioData(arrayBuf);
+      audioSR        = audioBuffer.sampleRate;
+      audioCH        = Math.min(audioBuffer.numberOfChannels, 2);
+
+      if (typeof AudioEncoder !== "undefined") {
+        const sup = await AudioEncoder.isConfigSupported({
+          codec: "mp4a.40.2", sampleRate: audioSR, numberOfChannels: audioCH,
+        });
+        useAudio = sup.supported;
+      }
+    } catch (e) {
+      console.warn("Audio prep failed, recording video only:", e);
+    }
   }
 
-  mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) recChunks.push(e.data); };
-  mediaRecorder.onstop = finalizeVideo;
+  // Setup mp4-muxer
+  muxer = new Mp4Muxer.Muxer({
+    target:     new Mp4Muxer.ArrayBufferTarget(),
+    video:      { codec: "avc", width: S.canvasW, height: S.canvasH },
+    ...(useAudio && { audio: { codec: "aac", sampleRate: audioSR, numberOfChannels: audioCH } }),
+    fastStart:  "in-memory",
+  });
 
-  // Seek audio to trim start before playing
-  if (S.audioLoaded) {
-    audioEl.currentTime = S.trimStart * S.audioDuration;
-    audioEl.play();
+  // Setup VideoEncoder
+  videoEncoder = new VideoEncoder({
+    output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+    error:  (e) => { showToast("Video encode error: " + e.message); stopRecording(); },
+  });
+
+  const videoConfig = {
+    codec:       "avc1.640034",
+    width:        S.canvasW,
+    height:       S.canvasH,
+    bitrate:      bps,
+    framerate:    REC_FPS,
+    latencyMode: "quality",
+  };
+
+  const support = await VideoEncoder.isConfigSupported(videoConfig);
+  if (!support.supported) {
+    showToast("H.264 encoding not supported — try updating Chrome.");
+    return;
   }
 
-  mediaRecorder.start(100);
+  videoEncoder.configure(videoConfig);
+
+  // Pre-encode full audio before video capture starts (faster, perfectly synced)
+  if (useAudio && audioBuffer) {
+    audioEncoder = new AudioEncoder({
+      output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+      error:  (e) => console.warn("Audio encode error:", e),
+    });
+    audioEncoder.configure({
+      codec: "mp4a.40.2", sampleRate: audioSR, numberOfChannels: audioCH, bitrate: 128_000,
+    });
+
+    const trimStartSample = Math.floor(S.trimStart * audioBuffer.duration * audioSR);
+    const trimEndSample   = Math.floor(S.trimEnd   * audioBuffer.duration * audioSR);
+    const CHUNK           = 4096;
+
+    for (let i = trimStartSample; i < trimEndSample; i += CHUNK) {
+      const n      = Math.min(CHUNK, trimEndSample - i);
+      const planar = new Float32Array(n * audioCH);
+      for (let c = 0; c < audioCH; c++) {
+        planar.set(audioBuffer.getChannelData(c).subarray(i, i + n), c * n);
+      }
+      const ts = Math.round(((i - trimStartSample) / audioSR) * 1_000_000);
+      const ad = new AudioData({
+        format:          "f32-planar",
+        sampleRate:       audioSR,
+        numberOfFrames:   n,
+        numberOfChannels: audioCH,
+        timestamp:        ts,
+        data:             planar,
+      });
+      audioEncoder.encode(ad);
+      ad.close();
+    }
+    await audioEncoder.flush();
+  }
+
+  // Start recording — frames captured inside animLoop at exactly REC_FPS
   S.isRecording = true;
-  recordStart   = Date.now();
 
-  // UI
   btnRecord.style.display   = "none";
   btnStop.style.display     = "flex";
   progressWrap.classList.add("visible");
   progressFill.style.width  = "0%";
+  progressLabel.textContent = "0:00 / " + fmt(recDuration);
   setStatus("recording", "Recording\u2026");
-
-  progressTimer = setInterval(() => {
-    const elapsed = (Date.now() - recordStart) / 1000;
-    const pct     = Math.min((elapsed / recDuration) * 100, 100);
-    progressFill.style.width  = pct + "%";
-    progressLabel.textContent = fmt(elapsed) + " / " + fmt(recDuration);
-
-    // Auto-stop at trim end or silent duration
-    const audioPos = S.audioLoaded ? audioEl.currentTime : elapsed;
-    const stopAt   = S.audioLoaded ? S.trimEnd * S.audioDuration : S.silentDuration;
-    if (audioPos >= stopAt || elapsed >= recDuration + 0.5) stopRecording();
-  }, 200);
 }
 
 function stopRecording() {
   if (!S.isRecording) return;
-  clearInterval(progressTimer);
-
-  if (S.audioLoaded) {
-    try { audioEl.pause(); audioEl.currentTime = 0; } catch(_) {}
-  }
-
   S.isRecording = false;
+
   btnStop.style.display   = "none";
   btnRecord.style.display = "flex";
   btnRecord.disabled      = false;
-  setStatus("encoding", "Saving MP4\u2026");
+  setStatus("encoding", "Encoding MP4\u2026");
 
-  try { mediaRecorder.stop(); } catch(_) {}
+  finalizeVideo();
 }
 
-function finalizeVideo() {
-  const isMP4 = recMime.includes("mp4");
-  const blob  = new Blob(recChunks, { type: recMime });
-  lastBlob    = blob;
-  if (lastBlobUrl) URL.revokeObjectURL(lastBlobUrl);
-  lastBlobUrl = URL.createObjectURL(blob);
+async function finalizeVideo() {
+  try {
+    await videoEncoder.flush();
+    muxer.finalize();
 
-  const sizeKB  = Math.round(blob.size / 1024);
-  const sizeStr = sizeKB > 1024 ? (sizeKB / 1024).toFixed(1) + " MB" : sizeKB + " KB";
-  const ext     = isMP4 ? "mp4" : "webm";
-  const fname   = "storytellers-" + S.ratio.replace(":", "x") + "-" + S.canvasW + "x" + S.canvasH + "." + ext;
+    const { buffer } = muxer.target;
+    const blob       = new Blob([buffer], { type: "video/mp4" });
+    lastBlob         = blob;
+    if (lastBlobUrl) URL.revokeObjectURL(lastBlobUrl);
+    lastBlobUrl = URL.createObjectURL(blob);
 
-  btnDownload.href          = lastBlobUrl;
-  btnDownload.download      = fname;
-  btnDownload.textContent   = "";
-  btnDownload.style.display = "flex";
-  // Re-add icon + label
-  btnDownload.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download ${ext.toUpperCase()}`;
+    const sizeKB  = Math.round(blob.size / 1024);
+    const sizeStr = sizeKB > 1024 ? (sizeKB / 1024).toFixed(1) + " MB" : sizeKB + " KB";
+    const fname   = "storytellers-" + S.ratio.replace(":", "x") + "-" + S.canvasW + "x" + S.canvasH + ".mp4";
 
-  progressFill.style.width  = "100%";
-  progressLabel.textContent = "Ready \u2014 " + sizeStr + (isMP4 ? "" : " (WebM fallback)");
-  setStatus("ready", "Done! Click Download MP4 to save.");
-  showToast((isMP4 ? "MP4" : "WebM") + " ready \u2014 " + sizeStr);
+    btnDownload.href          = lastBlobUrl;
+    btnDownload.download      = fname;
+    btnDownload.style.display = "flex";
+    btnDownload.innerHTML     = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download MP4`;
+
+    progressFill.style.width  = "100%";
+    progressLabel.textContent = "Ready \u2014 " + sizeStr;
+    setStatus("ready", "Done! Click Download MP4 to save.");
+    showToast("MP4 ready \u2014 " + sizeStr);
+
+  } catch (e) {
+    showToast("Encode failed: " + e.message);
+    setStatus("", "Encode error \u2014 try again.");
+    console.error(e);
+  }
 }
 
 // ── HELPERS ────────────────────────────────────────────────
@@ -1067,6 +1201,58 @@ function makeDrop(zone, handler) {
 imgInput.addEventListener("change",   (e) => loadImg(e.target.files[0]));
 audioInput.addEventListener("change", (e) => loadAudio(e.target.files[0]));
 makeDrop(imgZone,   loadImg);
+
+// ── BG / FG IMAGE ──────────────────────────────────────────
+function loadBgImg(file) {
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    S.bgImage = img;
+    bgImgZone.classList.add("has-file");
+    bgImgLabel.textContent = file.name.length > 14 ? file.name.slice(0, 12) + "\u2026" : file.name;
+    bgImgClear.style.display = "inline";
+    if (!animId) draw();
+  };
+  img.onerror = () => showToast("Could not load background image.");
+  img.src = url;
+}
+
+function loadFgImg(file) {
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    S.fgImage = img;
+    fgImgZone.classList.add("has-file");
+    fgImgLabel.textContent = file.name.length > 14 ? file.name.slice(0, 12) + "\u2026" : file.name;
+    fgImgClear.style.display = "inline";
+    if (!animId) draw();
+  };
+  img.onerror = () => showToast("Could not load foreground image.");
+  img.src = url;
+}
+
+bgImgInput.addEventListener("change", (e) => loadBgImg(e.target.files[0]));
+fgImgInput.addEventListener("change", (e) => loadFgImg(e.target.files[0]));
+
+bgImgClear.addEventListener("click", () => {
+  S.bgImage = null;
+  bgImgZone.classList.remove("has-file");
+  bgImgLabel.textContent = "Upload";
+  bgImgClear.style.display = "none";
+  bgImgInput.value = "";
+  if (!animId) draw();
+});
+
+fgImgClear.addEventListener("click", () => {
+  S.fgImage = null;
+  fgImgZone.classList.remove("has-file");
+  fgImgLabel.textContent = "Upload";
+  fgImgClear.style.display = "none";
+  fgImgInput.value = "";
+  if (!animId) draw();
+});
 makeDrop(audioZone, loadAudio);
 
 bgColorInput.addEventListener("input", () => {
