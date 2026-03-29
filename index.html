@@ -418,7 +418,7 @@
       <div class="setting-row">
         <span class="setting-label">Speed (RPM)</span>
         <div class="setting-control">
-          <input type="range" id="rpmSlider" min="10" max="120" value="33" step="1">
+          <input type="range" id="rpmSlider" min="5" max="120" value="33" step="1">
           <span class="range-val" id="rpmVal">33</span>
         </div>
       </div>
@@ -536,7 +536,7 @@ const durationCtrl  = document.getElementById("durationControl");
 
 let albumArt        = null;
 let animId          = null;
-let lastTs          = null;
+let animStartTs     = null;
 
 // Recording
 let mediaRecorder   = null;
@@ -641,19 +641,18 @@ function draw() {
 }
 
 // ── ANIMATION LOOP ─────────────────────────────────────────
+// Angle is derived from absolute elapsed time — no accumulation, no jitter.
 function animLoop(ts) {
-  if (!lastTs) lastTs = ts;
-  const dt  = ts - lastTs;
-  lastTs    = ts;
-  S.angle   = (S.angle + (S.rpm * 360 / 60000) * dt) % 360;
+  if (!animStartTs) animStartTs = ts;
+  const elapsed = ts - animStartTs;
+  S.angle = (elapsed * S.rpm * 360 / 60000) % 360;
   draw();
-
   animId = requestAnimationFrame(animLoop);
 }
 
 function startAnim() {
   if (animId) return;
-  lastTs = null;
+  animStartTs = null;
   animId = requestAnimationFrame(animLoop);
 }
 
@@ -933,7 +932,7 @@ async function startRecording() {
     : S.silentDuration;
 
   // Video stream from canvas
-  const canvasStream = canvas.captureStream(30);
+  const canvasStream = canvas.captureStream(60);
   const tracks       = [...canvasStream.getVideoTracks()];
 
   // Audio routing
