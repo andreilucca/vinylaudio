@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Storytellers — Spinning Photo Video Creator</title>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0a0a;
+      --surface:   #141414;
+      --surface2:  #1e1e1e;
+      --surface3:  #282828;
+      --border:    #2e2e2e;
+      --accent:    #1db954;
+      --danger:    #e55353;
+      --text:      #f0f0f0;
+      --text-muted:#888;
+      --text-dim:  #555;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── HEADER ─────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.25rem 2rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+    .logo { font-size: 1.4rem; font-weight: 800; letter-spacing: -0.04em; }
+    .logo em { font-style: normal; color: var(--accent); }
+    .tagline { font-size: 0.8rem; color: var(--text-muted); }
+
+    /* ── MAIN LAYOUT ────────────────────────────────── */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      overflow: hidden;
+    }
+
+    /* ── LEFT PANEL ─────────────────────────────────── */
+    .panel-left {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .section { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); }
+
+    .section-label {
+      font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.85rem;
+    }
+
+    /* ── UPLOAD ZONES ───────────────────────────────── */
+    .upload-zone {
+      border: 1.5px dashed var(--border); border-radius: 10px;
+      padding: 1.1rem 1rem; text-align: center; cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative; background: var(--surface2); display: block;
+    }
+    .upload-zone:hover,
+    .upload-zone.drag-over { border-color: var(--accent); background: rgba(29,185,84,0.05); }
+    .upload-zone.has-file  { border-color: var(--accent); border-style: solid; background: rgba(29,185,84,0.06); }
+    .upload-zone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .upload-icon { width: 32px; height: 32px; margin: 0 auto 0.5rem; opacity: 0.35; display: block; }
+    .upload-zone.has-file .upload-icon { opacity: 1; }
+    .upload-title    { font-size: 0.8rem; font-weight: 600; margin-bottom: 0.15rem; }
+    .upload-subtitle { font-size: 0.7rem; color: var(--text-muted); }
+    .upload-filename { font-size: 0.7rem; color: var(--accent); margin-top: 0.35rem;
+                       font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .upload-badge {
+      display: inline-block; font-size: 0.58rem; font-weight: 700; letter-spacing: 0.06em;
+      text-transform: uppercase; padding: 0.15rem 0.4rem; border-radius: 4px;
+      background: rgba(255,255,255,0.06); color: var(--text-dim); margin-bottom: 0.5rem;
+    }
+
+    /* ── WAVEFORM ────────────────────────────────────── */
+    .waveform-wrap {
+      margin-top: 0.85rem;
+      display: none;
+    }
+    .waveform-wrap.visible { display: block; }
+
+    .waveform-header {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.45rem;
+    }
+    .waveform-time {
+      font-size: 0.68rem; color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums;
+    }
+    .waveform-hint { font-size: 0.62rem; color: var(--text-dim); }
+
+    .waveform-canvas-wrap {
+      position: relative; cursor: col-resize;
+      border-radius: 6px; overflow: hidden;
+      background: var(--surface3);
+      border: 1px solid var(--border);
+    }
+    #waveformCanvas {
+      display: block; width: 100%; height: 56px;
+    }
+
+    /* Playback preview button */
+    .waveform-controls {
+      display: flex; align-items: center; justify-content: space-between; margin-top: 0.5rem;
+    }
+    .btn-preview {
+      display: flex; align-items: center; gap: 0.35rem;
+      background: var(--surface3); border: 1px solid var(--border);
+      color: var(--text-muted); font-size: 0.7rem; font-weight: 600;
+      padding: 0.3rem 0.7rem; border-radius: 6px; cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-preview:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-preview.playing { border-color: var(--danger); color: var(--danger); }
+    .trim-duration { font-size: 0.68rem; color: var(--text-dim); }
+
+    /* ── DURATION PICKER (audio-free mode) ───────────── */
+    .duration-row {
+      display: none;
+      align-items: center; justify-content: space-between; margin-top: 0;
+    }
+    .duration-row.visible { display: flex; }
+    .duration-label { font-size: 0.8rem; color: var(--text-muted); }
+
+    .seg-control {
+      display: flex; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 7px; overflow: hidden;
+    }
+    .seg-control button {
+      background: none; border: none; color: var(--text-muted); font-size: 0.72rem;
+      font-weight: 600; padding: 0.3rem 0.65rem; cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .seg-control button.active { background: var(--accent); color: #000; }
+    .seg-control button:hover:not(.active) { background: var(--surface3); color: var(--text); }
+
+    /* ── FORMAT CARDS ───────────────────────────────── */
+    .format-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem;
+    }
+    .format-card {
+      background: var(--surface2); border: 1.5px solid var(--border); border-radius: 9px;
+      padding: 0.65rem 0.35rem 0.55rem; cursor: pointer; text-align: center;
+      transition: border-color 0.15s, background 0.15s;
+      display: flex; flex-direction: column; align-items: center; gap: 0.35rem;
+    }
+    .format-card:hover { border-color: rgba(29,185,84,0.5); background: rgba(29,185,84,0.04); }
+    .format-card.active { border-color: var(--accent); background: rgba(29,185,84,0.08); }
+    .format-preview { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; }
+    .format-name  { font-size: 0.66rem; font-weight: 700; color: var(--text-muted); letter-spacing: 0.02em; }
+    .format-card.active .format-name { color: var(--accent); }
+    .format-ratio { font-size: 0.58rem; color: var(--text-dim); }
+    .format-platforms { font-size: 0.56rem; color: var(--text-dim); line-height: 1.3; }
+
+    /* ── SETTINGS ───────────────────────────────────── */
+    .setting-row {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.85rem;
+    }
+    .setting-row:last-child { margin-bottom: 0; }
+    .setting-label { font-size: 0.8rem; color: var(--text-muted); }
+    .setting-control { display: flex; align-items: center; gap: 0.5rem; }
+
+    input[type="color"] {
+      width: 32px; height: 26px; border: 1px solid var(--border); border-radius: 5px;
+      padding: 0; cursor: pointer; background: none;
+    }
+    input[type="range"] {
+      -webkit-appearance: none; appearance: none; height: 4px; border-radius: 2px;
+      background: var(--surface3); outline: none; width: 100px; cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+      background: var(--accent); cursor: pointer;
+    }
+    .range-val { font-size: 0.72rem; color: var(--text-muted); width: 36px; text-align: right; }
+
+    /* ── RECORD / DOWNLOAD ──────────────────────────── */
+    .record-section { padding: 1.25rem 1.5rem; }
+
+    .btn {
+      display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+      width: 100%; padding: 0.75rem 1rem; border-radius: 9px; border: none;
+      font-size: 0.85rem; font-weight: 700; cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s; letter-spacing: 0.01em;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .btn-record { background: var(--accent); color: #000; }
+    .btn-record:hover:not(:disabled) { opacity: 0.88; }
+    .btn-stop   { background: var(--danger); color: #fff; display: none; margin-top: 0.5rem; }
+    .btn-stop:hover:not(:disabled) { opacity: 0.88; }
+    .btn-download {
+      background: var(--surface3); color: var(--text); border: 1px solid var(--border);
+      margin-top: 0.6rem; text-decoration: none; display: none;
+    }
+    .btn-download:hover { background: var(--surface2); }
+
+    .progress-wrap { margin-top: 0.85rem; display: none; }
+    .progress-wrap.visible { display: block; }
+    .progress-track { height: 4px; background: var(--surface3); border-radius: 2px; overflow: hidden; }
+    .progress-fill  { height: 100%; background: var(--accent); border-radius: 2px;
+                      transition: width 0.35s linear; width: 0%; }
+    .progress-label { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.4rem; text-align: center; }
+
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      font-size: 0.68rem; color: var(--text-dim); margin-top: 0.6rem;
+      justify-content: center; width: 100%;
+    }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-dim); }
+    .status-badge.recording .status-dot { background: var(--danger); animation: pulse 1s infinite; }
+    .status-badge.recording { color: var(--danger); }
+    .status-badge.ready .status-dot { background: var(--accent); }
+    .status-badge.ready { color: var(--accent); }
+    .status-badge.encoding .status-dot { background: #f0a500; animation: pulse 1.5s infinite; }
+    .status-badge.encoding { color: #f0a500; }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+
+    /* ── RIGHT PANEL ────────────────────────────────── */
+    .panel-right {
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg); padding: 2rem; overflow: hidden;
+    }
+    canvas#vinylCanvas {
+      display: block; max-width: 100%; max-height: calc(100vh - 130px);
+      width: auto; height: auto; border-radius: 4px;
+    }
+
+    /* ── FOOTER ─────────────────────────────────────── */
+    footer {
+      padding: 0.65rem 2rem; background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+    }
+    .footer-note { font-size: 0.68rem; color: var(--text-dim); }
+    .footer-tip  { font-size: 0.68rem; color: var(--text-dim); }
+    .footer-tip strong { color: var(--text-muted); }
+
+    /* ── TOAST ──────────────────────────────────────── */
+    .toast {
+      position: fixed; bottom: 1.5rem; left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--surface3); border: 1px solid var(--border);
+      color: var(--text); padding: 0.6rem 1.2rem; border-radius: 8px;
+      font-size: 0.8rem; font-weight: 500; transition: transform 0.3s ease;
+      z-index: 999; white-space: nowrap; pointer-events: none;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    @media (max-width: 800px) {
+      main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+      .panel-left { border-right: none; border-bottom: 1px solid var(--border); overflow-y: visible; }
+      canvas#vinylCanvas { max-height: 55vw; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Story<em>tellers</em></div>
+  <div class="tagline">Turn your photo and audio into a spinning video</div>
+</header>
+
+<main>
+  <!-- ── LEFT PANEL ── -->
+  <aside class="panel-left">
+
+    <!-- Image Upload -->
+    <div class="section">
+      <div class="section-label">Photo</div>
+      <label class="upload-zone" id="imgZone">
+        <input type="file" id="imgInput" accept="image/png,image/jpeg,image/jpg,image/webp">
+        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="3" y="3" width="18" height="18" rx="3"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <polyline points="21 15 16 10 5 21"/>
+        </svg>
+        <div class="upload-title">Upload Photo</div>
+        <div class="upload-subtitle">PNG, JPG, WEBP</div>
+        <div class="upload-filename" id="imgFilename"></div>
+      </label>
+    </div>
+
+    <!-- Audio Upload + Waveform -->
+    <div class="section">
+      <div class="section-label">
+        Audio
+        <span class="upload-badge" style="margin-left:0.4rem">Optional</span>
+      </div>
+      <label class="upload-zone" id="audioZone">
+        <input type="file" id="audioInput" accept="audio/*">
+        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M9 18V5l12-2v13"/>
+          <circle cx="6" cy="18" r="3"/>
+          <circle cx="18" cy="16" r="3"/>
+        </svg>
+        <div class="upload-title">Upload Audio</div>
+        <div class="upload-subtitle">MP3, WAV, OGG, M4A — or skip for silent video</div>
+        <div class="upload-filename" id="audioFilename"></div>
+      </label>
+      <audio id="audioEl" style="display:none" crossorigin="anonymous"></audio>
+
+      <!-- Waveform timeline (appears after audio load) -->
+      <div class="waveform-wrap" id="waveformWrap">
+        <div class="waveform-header">
+          <span class="waveform-hint">Drag handles to trim selection</span>
+          <span class="waveform-time" id="waveformTime">0:00 – 0:00</span>
+        </div>
+        <div class="waveform-canvas-wrap" id="waveformWrap2">
+          <canvas id="waveformCanvas" height="56"></canvas>
+        </div>
+        <div class="waveform-controls">
+          <button class="btn-preview" id="btnPreview">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+            Preview
+          </button>
+          <span class="trim-duration" id="trimDuration"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Format Presets -->
+    <div class="section">
+      <div class="section-label">Format</div>
+      <div class="format-grid" id="formatGrid">
+
+        <div class="format-card active" data-ratio="1:1" data-w="1080" data-h="1080">
+          <div class="format-preview">
+            <svg width="28" height="28" viewBox="0 0 28 28">
+              <rect x="3" y="3" width="22" height="22" rx="2" fill="rgba(29,185,84,0.15)" stroke="var(--accent)" stroke-width="1.5"/>
+            </svg>
+          </div>
+          <div class="format-name">SQUARE</div>
+          <div class="format-ratio">1080 × 1080</div>
+          <div class="format-platforms">Instagram<br>Facebook</div>
+        </div>
+
+        <div class="format-card" data-ratio="4:5" data-w="1080" data-h="1350">
+          <div class="format-preview">
+            <svg width="28" height="28" viewBox="0 0 28 28">
+              <rect x="6" y="2" width="16" height="24" rx="2" fill="var(--surface3)" stroke="var(--text-dim)" stroke-width="1.5"/>
+            </svg>
+          </div>
+          <div class="format-name">PORTRAIT</div>
+          <div class="format-ratio">1080 × 1350</div>
+          <div class="format-platforms">Instagram<br>Feed</div>
+        </div>
+
+        <div class="format-card" data-ratio="9:16" data-w="1080" data-h="1920">
+          <div class="format-preview">
+            <svg width="28" height="28" viewBox="0 0 28 28">
+              <rect x="8" y="1" width="12" height="26" rx="2" fill="var(--surface3)" stroke="var(--text-dim)" stroke-width="1.5"/>
+            </svg>
+          </div>
+          <div class="format-name">STORY</div>
+          <div class="format-ratio">1080 × 1920</div>
+          <div class="format-platforms">TikTok<br>Reels</div>
+        </div>
+
+        <div class="format-card" data-ratio="16:9" data-w="1920" data-h="1080">
+          <div class="format-preview">
+            <svg width="28" height="28" viewBox="0 0 28 28">
+              <rect x="2" y="7" width="24" height="14" rx="2" fill="var(--surface3)" stroke="var(--text-dim)" stroke-width="1.5"/>
+            </svg>
+          </div>
+          <div class="format-name">WIDE</div>
+          <div class="format-ratio">1920 × 1080</div>
+          <div class="format-platforms">YouTube<br>Twitter</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Appearance -->
+    <div class="section">
+      <div class="section-label">Appearance</div>
+
+      <!-- Duration (only when no audio) -->
+      <div class="setting-row duration-row" id="durationRow">
+        <span class="setting-label">Duration</span>
+        <div class="seg-control" id="durationControl">
+          <button data-sec="15">15s</button>
+          <button data-sec="30" class="active">30s</button>
+          <button data-sec="60">1m</button>
+          <button data-sec="120">2m</button>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <span class="setting-label">Background</span>
+        <div class="setting-control">
+          <input type="color" id="bgColor" value="#111111">
+          <span style="font-size:0.7rem;color:var(--text-dim)" id="bgHex">#111111</span>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <span class="setting-label">Speed (RPM)</span>
+        <div class="setting-control">
+          <input type="range" id="rpmSlider" min="10" max="120" value="33" step="1">
+          <span class="range-val" id="rpmVal">33</span>
+        </div>
+      </div>
+
+      <div class="setting-row" style="margin-bottom:0">
+        <span class="setting-label">Photo Size</span>
+        <div class="setting-control">
+          <input type="range" id="sizeSlider" min="50" max="98" value="86" step="1">
+          <span class="range-val" id="sizeVal">86%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Record + Download + Email -->
+    <div class="record-section">
+
+      <button class="btn btn-record" id="btnRecord" disabled>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+        Record Video
+      </button>
+
+      <button class="btn btn-stop" id="btnStop">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+        Stop Recording
+      </button>
+
+      <a class="btn btn-download" id="btnDownload" download="storytellers.mp4">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Download MP4
+      </a>
+
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-track">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-label" id="progressLabel">0:00 / 0:00</div>
+      </div>
+
+      <div class="status-badge" id="statusBadge">
+        <div class="status-dot"></div>
+        <span id="statusText">Upload a photo to begin</span>
+      </div>
+
+
+    </div>
+  </aside>─ RIGHT PANEL — CANVAS ── -->
+  <div class="panel-right">
+    <canvas id="vinylCanvas"></canvas>
+  </div>
+
+</main>
+
+<footer>
+  <div class="footer-note">Chrome / Edge 94+ required · MP4 H.264 · up to 16 Mbps · no watermark</div>
+  <div class="footer-tip"><strong>Tip:</strong> Square photos give the cleanest disc look.</div>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+// ── STATE ──────────────────────────────────────────────────
+const S = {
+  imageLoaded:    false,
+  audioLoaded:    false,
+  isRecording:    false,
+  angle:          0,
+  rpm:            33,
+  bgColor:        "#111111",
+  ratio:          "1:1",
+  canvasW:        1080,
+  canvasH:        1080,
+  vinylPct:       0.86,
+  audioDuration:  0,
+  silentDuration: 30,    // seconds used when no audio
+  trimStart:      0,     // 0–1 fraction of audioDuration
+  trimEnd:        1,     // 0–1 fraction of audioDuration
+};
+
+// ── DOM REFS ───────────────────────────────────────────────
+const canvas        = document.getElementById("vinylCanvas");
+const ctx           = canvas.getContext("2d");
+const imgInput      = document.getElementById("imgInput");
+const audioInput    = document.getElementById("audioInput");
+const imgZone       = document.getElementById("imgZone");
+const audioZone     = document.getElementById("audioZone");
+const bgColorInput  = document.getElementById("bgColor");
+const bgHex         = document.getElementById("bgHex");
+const rpmSlider     = document.getElementById("rpmSlider");
+const rpmVal        = document.getElementById("rpmVal");
+const sizeSlider    = document.getElementById("sizeSlider");
+const sizeVal       = document.getElementById("sizeVal");
+const btnRecord     = document.getElementById("btnRecord");
+const btnStop       = document.getElementById("btnStop");
+const btnDownload   = document.getElementById("btnDownload");
+const progressWrap  = document.getElementById("progressWrap");
+const progressFill  = document.getElementById("progressFill");
+const progressLabel = document.getElementById("progressLabel");
+const statusBadge   = document.getElementById("statusBadge");
+const statusText    = document.getElementById("statusText");
+const audioEl       = document.getElementById("audioEl");
+const toast         = document.getElementById("toast");
+const waveformWrap  = document.getElementById("waveformWrap");
+const waveformCanvas= document.getElementById("waveformCanvas");
+const waveformTime  = document.getElementById("waveformTime");
+const trimDuration  = document.getElementById("trimDuration");
+const btnPreview    = document.getElementById("btnPreview");
+const durationRow   = document.getElementById("durationRow");
+const durationCtrl  = document.getElementById("durationControl");
+
+let albumArt        = null;
+let animId          = null;
+let lastTs          = null;
+
+// Recording
+let mediaRecorder   = null;
+let recChunks       = [];
+let recMime         = "";
+let audioCtxRec     = null;
+let recordStart     = null;
+let progressTimer   = null;
+let lastBlob        = null;
+let lastBlobUrl     = null;
+
+// Waveform
+let waveformPeaks   = [];
+let wfDragging      = null;  // "start" | "end" | null
+let previewPlaying  = false;
+let previewTimeout  = null;
+
+// ── CANVAS SIZE ────────────────────────────────────────────
+function applyCanvasSize() {
+  canvas.width  = S.canvasW;
+  canvas.height = S.canvasH;
+  draw();
+}
+
+// ── DISC DRAW ──────────────────────────────────────────────
+function draw() {
+  const W  = canvas.width;
+  const H  = canvas.height;
+  const cx = W / 2;
+  const cy = H / 2;
+  const R  = Math.min(W, H) * (S.vinylPct / 2);
+  const holeR = R * 0.022;
+
+  ctx.fillStyle = S.bgColor;
+  ctx.fillRect(0, 0, W, H);
+
+  // Static drop shadow
+  ctx.save();
+  ctx.shadowColor   = "rgba(0,0,0,0.72)";
+  ctx.shadowBlur    = 60;
+  ctx.shadowOffsetY = 18;
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.fillStyle = "#000";
+  ctx.fill();
+  ctx.restore();
+
+  // Rotating group
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate((S.angle * Math.PI) / 180);
+
+  if (albumArt) {
+    // Clip to circle, draw full image (cover-fit on shorter axis)
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(0, 0, R, 0, Math.PI * 2);
+    ctx.clip();
+    const iw    = albumArt.naturalWidth  || albumArt.width;
+    const ih    = albumArt.naturalHeight || albumArt.height;
+    const diam  = R * 2;
+    const scale = diam / Math.min(iw, ih);
+    const sw    = iw * scale;
+    const sh    = ih * scale;
+    ctx.drawImage(albumArt, -sw / 2, -sh / 2, sw, sh);
+    ctx.restore();
+  } else {
+    // Placeholder disc
+    const pg = ctx.createRadialGradient(0, 0, 0, 0, 0, R);
+    pg.addColorStop(0,   "#2e2e2e");
+    pg.addColorStop(0.7, "#1a1a1a");
+    pg.addColorStop(1,   "#0e0e0e");
+    ctx.beginPath();
+    ctx.arc(0, 0, R, 0, Math.PI * 2);
+    ctx.fillStyle = pg;
+    ctx.fill();
+    const fs = Math.round(R * 0.09);
+    ctx.fillStyle    = "rgba(255,255,255,0.15)";
+    ctx.font         = `600 ${fs}px -apple-system, sans-serif`;
+    ctx.textAlign    = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("Upload your photo", 0, 0);
+  }
+
+  // Outer edge ring
+  ctx.beginPath();
+  ctx.arc(0, 0, R - 1, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(255,255,255,0.14)";
+  ctx.lineWidth   = 2;
+  ctx.stroke();
+
+  // Center spindle hole
+  ctx.beginPath();
+  ctx.arc(0, 0, holeR, 0, Math.PI * 2);
+  ctx.fillStyle   = S.bgColor;
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.22)";
+  ctx.lineWidth   = 0.8;
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+// ── ANIMATION LOOP ─────────────────────────────────────────
+function animLoop(ts) {
+  if (!lastTs) lastTs = ts;
+  const dt  = ts - lastTs;
+  lastTs    = ts;
+  S.angle   = (S.angle + (S.rpm * 360 / 60000) * dt) % 360;
+  draw();
+
+  animId = requestAnimationFrame(animLoop);
+}
+
+function startAnim() {
+  if (animId) return;
+  lastTs = null;
+  animId = requestAnimationFrame(animLoop);
+}
+
+// ── IMAGE LOAD ─────────────────────────────────────────────
+function loadImg(file) {
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    albumArt = img;
+    S.imageLoaded = true;
+    URL.revokeObjectURL(url);
+    imgZone.classList.add("has-file");
+    document.getElementById("imgFilename").textContent = file.name;
+    checkReady();
+    startAnim();
+  };
+  img.onerror = () => showToast("Could not load image.");
+  img.src = url;
+}
+
+// ── AUDIO LOAD + WAVEFORM ──────────────────────────────────
+function loadAudio(file) {
+  if (!file) return;
+
+  const objectUrl = URL.createObjectURL(file);
+  audioEl.src = objectUrl;
+  audioEl.load();
+
+  audioEl.onloadedmetadata = () => {
+    S.audioDuration = audioEl.duration;
+    S.audioLoaded   = true;
+    S.trimStart     = 0;
+    S.trimEnd       = 1;
+    audioZone.classList.add("has-file");
+    document.getElementById("audioFilename").textContent = file.name;
+    checkReady();
+    updateWaveformTime();
+
+    // Decode audio for waveform rendering
+    const reader = new FileReader();
+    reader.onload = (e) => decodeAndDrawWaveform(e.target.result);
+    reader.readAsArrayBuffer(file);
+  };
+
+  audioEl.onerror = () => showToast("Could not load audio.");
+}
+
+async function decodeAndDrawWaveform(arrayBuffer) {
+  try {
+    const offCtx = new OfflineAudioContext(1, 1, 44100);
+    const buf    = await offCtx.decodeAudioData(arrayBuffer);
+    const data   = buf.getChannelData(0);
+    const totalSamples = data.length;
+    const BINS   = 500;
+    const block  = Math.floor(totalSamples / BINS);
+    const peaks  = [];
+
+    for (let i = 0; i < BINS; i++) {
+      let max = 0;
+      const offset = i * block;
+      for (let j = 0; j < block; j++) {
+        const v = Math.abs(data[offset + j] || 0);
+        if (v > max) max = v;
+      }
+      peaks.push(max);
+    }
+
+    waveformPeaks = peaks;
+    waveformWrap.classList.add("visible");
+    drawWaveform();
+    setupWaveformDrag();
+  } catch (err) {
+    console.warn("Waveform decode failed:", err);
+    // Show waveform UI anyway with empty peaks
+    waveformPeaks = new Array(500).fill(0.3);
+    waveformWrap.classList.add("visible");
+    drawWaveform();
+    setupWaveformDrag();
+  }
+}
+
+function drawWaveform() {
+  const wc   = waveformCanvas;
+  const W    = wc.offsetWidth || 300;
+  const H    = 56;
+  wc.width   = W;
+  wc.height  = H;
+
+  const wCtx = wc.getContext("2d");
+  wCtx.clearRect(0, 0, W, H);
+
+  const bins = waveformPeaks.length;
+  const cx   = W / bins;
+  const maxH = H * 0.85;
+
+  // Selection region background
+  const sx = S.trimStart * W;
+  const ex = S.trimEnd   * W;
+  wCtx.fillStyle = "rgba(29,185,84,0.12)";
+  wCtx.fillRect(sx, 0, ex - sx, H);
+
+  // Waveform bars
+  for (let i = 0; i < bins; i++) {
+    const xPos   = i * cx;
+    const barH   = Math.max(2, waveformPeaks[i] * maxH);
+    const yPos   = (H - barH) / 2;
+    const inSel  = (i / bins) >= S.trimStart && (i / bins) <= S.trimEnd;
+    wCtx.fillStyle = inSel ? "rgba(29,185,84,0.75)" : "rgba(255,255,255,0.12)";
+    wCtx.fillRect(xPos, yPos, Math.max(1, cx - 0.5), barH);
+  }
+
+  // Start handle
+  const startX = S.trimStart * W;
+  wCtx.fillStyle   = "#1db954";
+  wCtx.fillRect(startX - 1.5, 0, 3, H);
+  // Handle thumb
+  wCtx.beginPath();
+  wCtx.arc(startX, H / 2, 5, 0, Math.PI * 2);
+  wCtx.fill();
+
+  // End handle
+  const endX = S.trimEnd * W;
+  wCtx.fillStyle = "#1db954";
+  wCtx.fillRect(endX - 1.5, 0, 3, H);
+  wCtx.beginPath();
+  wCtx.arc(endX, H / 2, 5, 0, Math.PI * 2);
+  wCtx.fill();
+
+  updateWaveformTime();
+}
+
+function updateWaveformTime() {
+  if (!S.audioLoaded) return;
+  const start = S.trimStart * S.audioDuration;
+  const end   = S.trimEnd   * S.audioDuration;
+  const dur   = end - start;
+  waveformTime.textContent = fmt(start) + " – " + fmt(end);
+  trimDuration.textContent = "Duration: " + fmt(dur);
+}
+
+function setupWaveformDrag() {
+  const wc = waveformCanvas;
+
+  function getHandleAt(x) {
+    const W   = wc.offsetWidth;
+    const sx  = S.trimStart * W;
+    const ex  = S.trimEnd   * W;
+    if (Math.abs(x - sx) <= 12) return "start";
+    if (Math.abs(x - ex) <= 12) return "end";
+    return null;
+  }
+
+  function posFraction(clientX) {
+    const rect = wc.getBoundingClientRect();
+    return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  }
+
+  wc.addEventListener("mousedown", (e) => {
+    const x = e.clientX - wc.getBoundingClientRect().left;
+    const h = getHandleAt(x);
+    if (h) {
+      wfDragging = h;
+      e.preventDefault();
+    } else {
+      // Click anywhere = move nearest handle
+      const f = posFraction(e.clientX);
+      const dS = Math.abs(f - S.trimStart);
+      const dE = Math.abs(f - S.trimEnd);
+      wfDragging = dS < dE ? "start" : "end";
+    }
+  });
+
+  wc.addEventListener("touchstart", (e) => {
+    const touch = e.touches[0];
+    const x = touch.clientX - wc.getBoundingClientRect().left;
+    wfDragging = getHandleAt(x) || "start";
+    e.preventDefault();
+  }, { passive: false });
+
+  const onMove = (clientX) => {
+    if (!wfDragging) return;
+    const f = posFraction(clientX);
+    if (wfDragging === "start") {
+      S.trimStart = Math.max(0, Math.min(f, S.trimEnd - 0.02));
+    } else {
+      S.trimEnd   = Math.min(1, Math.max(f, S.trimStart + 0.02));
+    }
+    drawWaveform();
+  };
+
+  document.addEventListener("mousemove",  (e) => onMove(e.clientX));
+  document.addEventListener("touchmove",  (e) => onMove(e.touches[0].clientX), { passive: true });
+  document.addEventListener("mouseup",    () => { wfDragging = null; });
+  document.addEventListener("touchend",   () => { wfDragging = null; });
+}
+
+// ── AUDIO PREVIEW ──────────────────────────────────────────
+function togglePreview() {
+  if (previewPlaying) {
+    stopPreview();
+  } else {
+    startPreview();
+  }
+}
+
+function startPreview() {
+  if (!S.audioLoaded) return;
+  clearTimeout(previewTimeout);
+  previewPlaying = true;
+  btnPreview.classList.add("playing");
+  btnPreview.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Stop`;
+
+  const startSec = S.trimStart * S.audioDuration;
+  const durSec   = (S.trimEnd - S.trimStart) * S.audioDuration;
+  audioEl.currentTime = startSec;
+  audioEl.play();
+
+  previewTimeout = setTimeout(stopPreview, durSec * 1000);
+}
+
+function stopPreview() {
+  clearTimeout(previewTimeout);
+  previewPlaying = false;
+  audioEl.pause();
+  btnPreview.classList.remove("playing");
+  btnPreview.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg> Preview`;
+}
+
+// ── READY STATE ────────────────────────────────────────────
+function checkReady() {
+  const ok = S.imageLoaded;
+  btnRecord.disabled = !ok || S.isRecording;
+  // Show duration picker only when no audio loaded
+  durationRow.classList.toggle("visible", !S.audioLoaded);
+  if (ok && !S.isRecording) setStatus("ready", S.audioLoaded ? "Ready — click Record" : "Ready — no audio, silent video");
+  else if (!S.imageLoaded)  setStatus("", "Upload a photo to begin");
+}
+
+function setStatus(cls, msg) {
+  statusBadge.className = "status-badge " + cls;
+  statusText.textContent = msg;
+}
+
+// ── RECORDING ──────────────────────────────────────────────
+// Uses MediaRecorder with video/mp4 (Chrome 130+) or webm fallback.
+// canvas.captureStream() feeds the video track automatically.
+
+function pickMime() {
+  const candidates = [
+    "video/mp4;codecs=avc1,mp4a.40.2",
+    "video/mp4;codecs=avc1",
+    "video/mp4",
+    "video/webm;codecs=vp9,opus",
+    "video/webm;codecs=vp8,opus",
+    "video/webm",
+  ];
+  return candidates.find(m => {
+    try { return MediaRecorder.isTypeSupported(m); } catch(_) { return false; }
+  }) || null;
+}
+
+async function startRecording() {
+  if (S.isRecording || !S.imageLoaded) return;
+
+  const mime = pickMime();
+  if (!mime) { showToast("MediaRecorder not supported — use Chrome or Edge."); return; }
+
+  stopPreview();
+  btnDownload.style.display = "none";
+  lastBlob    = null;
+  lastBlobUrl = null;
+
+  // Duration
+  const recDuration = S.audioLoaded
+    ? (S.trimEnd - S.trimStart) * S.audioDuration
+    : S.silentDuration;
+
+  // Video stream from canvas
+  const canvasStream = canvas.captureStream(30);
+  const tracks       = [...canvasStream.getVideoTracks()];
+
+  // Audio routing
+  if (S.audioLoaded) {
+    if (audioCtxRec) { try { await audioCtxRec.close(); } catch(_) {} }
+    audioCtxRec       = new (window.AudioContext || window.webkitAudioContext)();
+    const src         = audioCtxRec.createMediaElementSource(audioEl);
+    const dest        = audioCtxRec.createMediaStreamDestination();
+    src.connect(dest);
+    src.connect(audioCtxRec.destination);
+    tracks.push(...dest.stream.getAudioTracks());
+  }
+
+  const combined = new MediaStream(tracks);
+
+  // Bitrate scaled to resolution
+  const px  = S.canvasW * S.canvasH;
+  const bps = px >= 1920 * 1080 ? 16_000_000 : px >= 1080 * 1080 ? 10_000_000 : 6_000_000;
+
+  recChunks = [];
+  recMime   = mime;
+
+  try {
+    mediaRecorder = new MediaRecorder(combined, { mimeType: mime, videoBitsPerSecond: bps });
+  } catch (e) {
+    // Some builds ignore videoBitsPerSecond with mp4; retry without it
+    mediaRecorder = new MediaRecorder(combined, { mimeType: mime });
+  }
+
+  mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) recChunks.push(e.data); };
+  mediaRecorder.onstop = finalizeVideo;
+
+  // Seek audio to trim start before playing
+  if (S.audioLoaded) {
+    audioEl.currentTime = S.trimStart * S.audioDuration;
+    audioEl.play();
+  }
+
+  mediaRecorder.start(100);
+  S.isRecording = true;
+  recordStart   = Date.now();
+
+  // UI
+  btnRecord.style.display   = "none";
+  btnStop.style.display     = "flex";
+  progressWrap.classList.add("visible");
+  progressFill.style.width  = "0%";
+  setStatus("recording", "Recording\u2026");
+
+  progressTimer = setInterval(() => {
+    const elapsed = (Date.now() - recordStart) / 1000;
+    const pct     = Math.min((elapsed / recDuration) * 100, 100);
+    progressFill.style.width  = pct + "%";
+    progressLabel.textContent = fmt(elapsed) + " / " + fmt(recDuration);
+
+    // Auto-stop at trim end or silent duration
+    const audioPos = S.audioLoaded ? audioEl.currentTime : elapsed;
+    const stopAt   = S.audioLoaded ? S.trimEnd * S.audioDuration : S.silentDuration;
+    if (audioPos >= stopAt || elapsed >= recDuration + 0.5) stopRecording();
+  }, 200);
+}
+
+function stopRecording() {
+  if (!S.isRecording) return;
+  clearInterval(progressTimer);
+
+  if (S.audioLoaded) {
+    try { audioEl.pause(); audioEl.currentTime = 0; } catch(_) {}
+  }
+
+  S.isRecording = false;
+  btnStop.style.display   = "none";
+  btnRecord.style.display = "flex";
+  btnRecord.disabled      = false;
+  setStatus("encoding", "Saving MP4\u2026");
+
+  try { mediaRecorder.stop(); } catch(_) {}
+}
+
+function finalizeVideo() {
+  const isMP4 = recMime.includes("mp4");
+  const blob  = new Blob(recChunks, { type: recMime });
+  lastBlob    = blob;
+  if (lastBlobUrl) URL.revokeObjectURL(lastBlobUrl);
+  lastBlobUrl = URL.createObjectURL(blob);
+
+  const sizeKB  = Math.round(blob.size / 1024);
+  const sizeStr = sizeKB > 1024 ? (sizeKB / 1024).toFixed(1) + " MB" : sizeKB + " KB";
+  const ext     = isMP4 ? "mp4" : "webm";
+  const fname   = "storytellers-" + S.ratio.replace(":", "x") + "-" + S.canvasW + "x" + S.canvasH + "." + ext;
+
+  btnDownload.href          = lastBlobUrl;
+  btnDownload.download      = fname;
+  btnDownload.textContent   = "";
+  btnDownload.style.display = "flex";
+  // Re-add icon + label
+  btnDownload.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download ${ext.toUpperCase()}`;
+
+  progressFill.style.width  = "100%";
+  progressLabel.textContent = "Ready \u2014 " + sizeStr + (isMP4 ? "" : " (WebM fallback)");
+  setStatus("ready", "Done! Click Download MP4 to save.");
+  showToast((isMP4 ? "MP4" : "WebM") + " ready \u2014 " + sizeStr);
+}
+
+// ── HELPERS ────────────────────────────────────────────────
+function fmt(s) {
+  s = Math.max(0, s);
+  return Math.floor(s / 60) + ":" + String(Math.floor(s % 60)).padStart(2, "0");
+}
+
+let toastTimer = null;
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("show"), 4000);
+}
+
+// ── DRAG-DROP ──────────────────────────────────────────────
+function makeDrop(zone, handler) {
+  zone.addEventListener("dragover",  (e) => { e.preventDefault(); zone.classList.add("drag-over"); });
+  zone.addEventListener("dragleave", ()  => zone.classList.remove("drag-over"));
+  zone.addEventListener("drop",      (e) => {
+    e.preventDefault();
+    zone.classList.remove("drag-over");
+    const f = e.dataTransfer.files[0];
+    if (f) handler(f);
+  });
+}
+
+// ── EVENT WIRING ───────────────────────────────────────────
+imgInput.addEventListener("change",   (e) => loadImg(e.target.files[0]));
+audioInput.addEventListener("change", (e) => loadAudio(e.target.files[0]));
+makeDrop(imgZone,   loadImg);
+makeDrop(audioZone, loadAudio);
+
+bgColorInput.addEventListener("input", () => {
+  S.bgColor = bgColorInput.value;
+  bgHex.textContent = bgColorInput.value;
+  if (!animId) draw();
+});
+
+rpmSlider.addEventListener("input", () => {
+  S.rpm = parseInt(rpmSlider.value, 10);
+  rpmVal.textContent = S.rpm;
+});
+
+sizeSlider.addEventListener("input", () => {
+  S.vinylPct = parseInt(sizeSlider.value, 10) / 100;
+  sizeVal.textContent = sizeSlider.value + "%";
+  if (!animId) draw();
+});
+
+// Format cards
+document.getElementById("formatGrid").querySelectorAll(".format-card").forEach(card => {
+  card.addEventListener("click", () => {
+    document.getElementById("formatGrid").querySelectorAll(".format-card").forEach(c => {
+      c.classList.remove("active");
+      const r = c.querySelector("rect");
+      if (r) { r.setAttribute("fill", "var(--surface3)"); r.setAttribute("stroke", "var(--text-dim)"); }
+    });
+    card.classList.add("active");
+    const r = card.querySelector("rect");
+    if (r) { r.setAttribute("fill", "rgba(29,185,84,0.15)"); r.setAttribute("stroke", "var(--accent)"); }
+    S.ratio   = card.dataset.ratio;
+    S.canvasW = parseInt(card.dataset.w, 10);
+    S.canvasH = parseInt(card.dataset.h, 10);
+    applyCanvasSize();
+  });
+});
+
+// Duration picker
+durationCtrl.querySelectorAll("button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    durationCtrl.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    S.silentDuration = parseInt(btn.dataset.sec, 10);
+  });
+});
+
+// Record / Stop
+btnRecord.addEventListener("click",   startRecording);
+btnStop.addEventListener("click",     stopRecording);
+btnPreview.addEventListener("click",  togglePreview);
+
+// ── INIT ───────────────────────────────────────────────────
+applyCanvasSize();
+checkReady();
+startAnim();
+
+</script>
+</body>
+</html>
