@@ -1064,24 +1064,8 @@ async function startRecording() {
     error:  (e) => { showToast("Video encode error: " + e.message); stopRecording(); },
   });
 
-  // Try avc1.640020 (High 3.2) first — identical to turn.audio output.
-  // Fall back to avc1.640028 (High 4.0) if browser rejects it.
-  const codecPreference = ["avc1.640020", "avc1.640028"];
-  let chosenCodec = null;
-  for (const c of codecPreference) {
-    const s = await VideoEncoder.isConfigSupported({
-      codec: c, width: S.canvasW, height: S.canvasH,
-      bitrate: bps, framerate: REC_FPS, latencyMode: "quality",
-    });
-    if (s.supported) { chosenCodec = c; break; }
-  }
-  if (!chosenCodec) {
-    showToast("H.264 encoding not supported — try updating Chrome.");
-    return;
-  }
-
   const videoConfig = {
-    codec:       chosenCodec,
+    codec:       "avc1.640028",
     width:        S.canvasW,
     height:       S.canvasH,
     bitrate:      bps,
