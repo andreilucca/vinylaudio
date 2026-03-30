@@ -4,10 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Storytellers — Spinning Photo Video Creator</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
 
   <style>
+    @font-face {
+      font-family: 'NexaRoundGlow';
+      src: url('fonts/nexaround-glow.ttf') format('truetype');
+      font-weight: normal;
+      font-style: normal;
+    }
+
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
@@ -42,7 +47,7 @@
       background: var(--surface);
       flex-shrink: 0;
     }
-    .logo { font-size: 1.4rem; font-weight: 800; letter-spacing: -0.04em; color: var(--text); font-family: 'JetBrains Mono', monospace; }
+    .logo { font-size: 1.4rem; font-weight: normal; letter-spacing: 0.01em; color: #b8860b; font-family: 'NexaRoundGlow', sans-serif; }
     .logo em { font-style: normal; color: var(--text); }
     .tagline { font-size: 0.8rem; color: var(--text-muted); }
 
