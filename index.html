@@ -12,6 +12,18 @@
       font-weight: normal;
       font-style: normal;
     }
+    @font-face {
+      font-family: 'Fractal';
+      src: url('fonts/FRACTAL.otf') format('opentype');
+      font-weight: normal;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'FuturaStd';
+      src: url('fonts/FuturaStd-Bold.otf') format('opentype');
+      font-weight: bold;
+      font-style: normal;
+    }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -50,6 +62,9 @@
     .logo { font-size: 2.8rem; font-weight: normal; letter-spacing: 0.01em; color: #1a5c2a; font-family: 'NexaRoundGlow', sans-serif; }
     .logo em { font-style: normal; color: var(--text); }
     .tagline { font-size: 0.8rem; color: var(--text-muted); }
+    .font-preview { display: flex; flex-direction: column; gap: 0.4rem; }
+    .font-preview span { font-size: 60pt; color: #1a5c2a; line-height: 1; }
+    .font-preview .label { font-size: 0.65rem; color: var(--text-muted); font-family: sans-serif; letter-spacing: 0.08em; text-transform: uppercase; }
 
     /* ── MAIN LAYOUT ────────────────────────────────── */
     main {
@@ -306,7 +321,12 @@
 <body>
 
 <header>
-  <div class="logo">storytellers</div>
+  <div class="font-preview">
+    <div class="label">Fractal</div>
+    <span style="font-family:'Fractal',sans-serif;">storytellers</span>
+    <div class="label">Futura Std Bold</div>
+    <span style="font-family:'FuturaStd',sans-serif;font-weight:bold;">storytellers</span>
+  </div>
   <div class="tagline">Turn your photo and audio into a spinning video</div>
 </header>
 
