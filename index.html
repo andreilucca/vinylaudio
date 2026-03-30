@@ -1018,8 +1018,8 @@ async function startRecording() {
 
   stopPreview();
   btnDownload.style.display = "none";
-  lastBlob    = null;
-  lastBlobUrl = null;
+  if (lastBlobUrl) { URL.revokeObjectURL(lastBlobUrl); lastBlobUrl = null; }
+  lastBlob = null;
 
   const recDuration  = S.audioLoaded
     ? (S.trimEnd - S.trimStart) * S.audioDuration
