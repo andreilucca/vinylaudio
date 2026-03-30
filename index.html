@@ -1064,8 +1064,10 @@ async function startRecording() {
     error:  (e) => { showToast("Video encode error: " + e.message); stopRecording(); },
   });
 
+  // Use avc1.640020 (High Profile Level 3.2) — same as turn.audio.
+  // Fallback to avc1.640034 if browser rejects it.
   const videoConfig = {
-    codec:       "avc1.640034",
+    codec:       "avc1.640020",
     width:        S.canvasW,
     height:       S.canvasH,
     bitrate:      bps,
@@ -1073,13 +1075,17 @@ async function startRecording() {
     latencyMode: "quality",
   };
 
-  const support = await VideoEncoder.isConfigSupported(videoConfig);
-  if (!support.supported) {
-    showToast("H.264 encoding not supported — try updating Chrome.");
-    return;
+  try {
+    videoEncoder.configure(videoConfig);
+  } catch (e) {
+    videoConfig.codec = "avc1.640034";
+    try {
+      videoEncoder.configure(videoConfig);
+    } catch (e2) {
+      showToast("Encoder not supported: " + e2.message);
+      return;
+    }
   }
-
-  videoEncoder.configure(videoConfig);
 
   // Pre-encode full audio before video capture starts (faster, perfectly synced)
   if (useAudio && audioBuffer) {
