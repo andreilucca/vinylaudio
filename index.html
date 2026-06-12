@@ -559,7 +559,8 @@ const S = {
   canvasH:        1080,
   vinylPct:       0.86,
   audioDuration:  0,
-  silentDuration: 30,    // seconds used when no audio
+  silentDuration: 30,    // seconds used when no audio, or manual override
+  manualDuration: false, // when audio loaded: false = full song, true = use silentDuration
   trimStart:      0,     // 0–1 fraction of audioDuration
   trimEnd:        1,     // 0–1 fraction of audioDuration
   bgImage:        null,  // HTMLImageElement — background image (behind disc)
@@ -730,33 +731,45 @@ function draw() {
 }
 
 // ── ANIMATION LOOP ─────────────────────────────────────────
-// Angle is derived from absolute elapsed time — no accumulation, no jitter.
+// Live preview: angle derived from absolute wall-clock time — smooth on screen.
+// Recording: angle derived from the frame COUNTER instead, so frame N always
+// carries the exact angle matching its timestamp (N / FPS). This guarantees a
+// perfectly linear angle↔timestamp relationship → buttery-smooth CFR playback,
+// immune to rAF jitter, GC pauses or encoder back-pressure during export.
 function animLoop(ts) {
   if (!animStartTs) animStartTs = ts;
-  const elapsed = ts - animStartTs;
-  S.angle = (elapsed * S.rpm * 360 / 60000) % 360;
-  draw();
 
-  // Capture frame for WebCodecs encoder if recording
   if (S.isRecording && videoEncoder && videoEncoder.state === "configured") {
-    if (recFrameCount === 0 || ts - recLastFrameTs >= (1000 / REC_FPS) - 1) {
-      const vts = Math.round(recFrameCount * (1_000_000 / REC_FPS));
-      try {
-        const frame = new VideoFrame(canvas, { timestamp: vts });
-        videoEncoder.encode(frame, { keyFrame: recFrameCount % REC_FPS === 0 });
-        frame.close();
-      } catch (_) {}
-      recLastFrameTs = ts;
-      recFrameCount++;
-
-      const recDur = S.audioLoaded
-        ? (S.trimEnd - S.trimStart) * S.audioDuration
-        : S.silentDuration;
-      progressFill.style.width  = Math.min(recFrameCount / recTotalFrames * 100, 100) + "%";
-      progressLabel.textContent = fmt(recFrameCount / REC_FPS) + " / " + fmt(recDur);
-
-      if (recFrameCount >= recTotalFrames) stopRecording();
+    // Back-pressure: if the encoder queue is backed up, wait a tick before
+    // feeding more frames. Frame index does NOT advance, so output stays exact.
+    if (videoEncoder.encodeQueueSize > 8) {
+      animId = requestAnimationFrame(animLoop);
+      return;
     }
+    // Deterministic: one frame captured per rAF tick, angle locked to frame index.
+    const tSec = recFrameCount / REC_FPS;
+    S.angle = (tSec * S.rpm * 360 / 60) % 360;
+    draw();
+
+    const vts = Math.round(recFrameCount * (1_000_000 / REC_FPS));
+    try {
+      const frame = new VideoFrame(canvas, { timestamp: vts });
+      videoEncoder.encode(frame, { keyFrame: recFrameCount % REC_FPS === 0 });
+      frame.close();
+    } catch (_) {}
+    recFrameCount++;
+
+    const recDur = S.audioLoaded
+      ? (S.trimEnd - S.trimStart) * S.audioDuration
+      : S.silentDuration;
+    progressFill.style.width  = Math.min(recFrameCount / recTotalFrames * 100, 100) + "%";
+    progressLabel.textContent = fmt(recFrameCount / REC_FPS) + " / " + fmt(recDur);
+
+    if (recFrameCount >= recTotalFrames) stopRecording();
+  } else {
+    const elapsed = ts - animStartTs;
+    S.angle = (elapsed * S.rpm * 360 / 60000) % 360;
+    draw();
   }
 
   animId = requestAnimationFrame(animLoop);
@@ -798,12 +811,12 @@ function loadAudio(file) {
   audioEl.onloadedmetadata = () => {
     S.audioDuration = audioEl.duration;
     S.audioLoaded   = true;
+    S.manualDuration = false;
     S.trimStart     = 0;
     S.trimEnd       = 1;
     audioZone.classList.add("has-file");
     document.getElementById("audioFilename").textContent = file.name;
-    checkReady();
-    updateWaveformTime();
+    syncDuration();
 
     // Decode audio for waveform rendering
     const reader = new FileReader();
@@ -860,13 +873,21 @@ function drawWaveform() {
   const cx   = W / bins;
   const maxH = H * 0.85;
 
-  // Full track is always used — render every bar as active (no trim handles)
+  // Bars up to trimEnd are "used" (green); the rest dim. Full song = all green.
   for (let i = 0; i < bins; i++) {
-    const xPos = i * cx;
-    const barH = Math.max(2, waveformPeaks[i] * maxH);
-    const yPos = (H - barH) / 2;
-    wCtx.fillStyle = "rgba(29,185,84,0.75)";
+    const xPos  = i * cx;
+    const barH  = Math.max(2, waveformPeaks[i] * maxH);
+    const yPos  = (H - barH) / 2;
+    const inSel = (i / bins) <= S.trimEnd;
+    wCtx.fillStyle = inSel ? "rgba(29,185,84,0.75)" : "rgba(255,255,255,0.12)";
     wCtx.fillRect(xPos, yPos, Math.max(1, cx - 0.5), barH);
+  }
+
+  // Cut marker when a manual duration shorter than the song is selected
+  if (S.manualDuration && S.trimEnd < 1) {
+    const ex = S.trimEnd * W;
+    wCtx.fillStyle = "#1db954";
+    wCtx.fillRect(ex - 1, 0, 2, H);
   }
 
   updateWaveformTime();
@@ -874,8 +895,14 @@ function drawWaveform() {
 
 function updateWaveformTime() {
   if (!S.audioLoaded) return;
-  waveformTime.textContent = fmt(S.audioDuration);
-  trimDuration.textContent = "Full length: " + fmt(S.audioDuration);
+  const used = (S.trimEnd - S.trimStart) * S.audioDuration;
+  if (S.manualDuration) {
+    waveformTime.textContent = fmt(used) + " / " + fmt(S.audioDuration);
+    trimDuration.textContent = "Manual: " + fmt(used) + " of " + fmt(S.audioDuration);
+  } else {
+    waveformTime.textContent = fmt(S.audioDuration);
+    trimDuration.textContent = "Full length: " + fmt(S.audioDuration);
+  }
 }
 
 function setupWaveformDrag() {
@@ -967,13 +994,41 @@ function stopPreview() {
 }
 
 // ── READY STATE ────────────────────────────────────────────
+// syncDuration: single source of truth for the recording length.
+//  • no audio          → uses S.silentDuration (a duration button is always active)
+//  • audio, full song  → trimEnd = 1 (no duration button active)
+//  • audio, manual pick → trimEnd capped to S.silentDuration of the song
+function syncDuration() {
+  if (S.audioLoaded) {
+    S.trimStart = 0;
+    S.trimEnd   = S.manualDuration
+      ? Math.min(S.silentDuration / S.audioDuration, 1)
+      : 1;
+    if (waveformPeaks.length) drawWaveform();
+  }
+  updateDurationButtons();
+  checkReady();
+}
+
+function updateDurationButtons() {
+  durationCtrl.querySelectorAll("button").forEach(b => {
+    const sec    = parseInt(b.dataset.sec, 10);
+    const manual = S.audioLoaded ? S.manualDuration : true;
+    b.classList.toggle("active", manual && sec === S.silentDuration);
+  });
+}
+
 function checkReady() {
   const ok = S.imageLoaded;
   btnRecord.disabled = !ok || S.isRecording;
-  // Show duration picker only when no audio loaded
-  durationRow.classList.toggle("visible", !S.audioLoaded);
-  if (ok && !S.isRecording) setStatus("ready", S.audioLoaded ? "Ready — click Record" : "Ready — no audio, silent video");
-  else if (!S.imageLoaded)  setStatus("", "Upload a photo to begin");
+  // Duration picker is always available (opt-in manual length even with audio)
+  durationRow.classList.add("visible");
+  if (ok && !S.isRecording) {
+    if (!S.audioLoaded)        setStatus("ready", "Ready \u2014 silent video " + fmt(S.silentDuration));
+    else if (S.manualDuration) setStatus("ready", "Ready \u2014 manual " + fmt(S.silentDuration));
+    else                       setStatus("ready", "Ready \u2014 full song " + fmt(S.audioDuration));
+  }
+  else if (!S.imageLoaded)     setStatus("", "Upload a photo to begin");
 }
 
 function setStatus(cls, msg) {
@@ -1282,9 +1337,15 @@ document.getElementById("formatGrid").querySelectorAll(".format-card").forEach(c
 // Duration picker
 durationCtrl.querySelectorAll("button").forEach(btn => {
   btn.addEventListener("click", () => {
-    durationCtrl.querySelectorAll("button").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    S.silentDuration = parseInt(btn.dataset.sec, 10);
+    const sec = parseInt(btn.dataset.sec, 10);
+    if (S.audioLoaded && S.manualDuration && S.silentDuration === sec) {
+      // Click the active button again → back to full song
+      S.manualDuration = false;
+    } else {
+      S.silentDuration = sec;
+      S.manualDuration = true;
+    }
+    syncDuration();
   });
 });
 
