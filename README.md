@@ -26,6 +26,8 @@ MP4 with a continuously rotating record, drop shadow and a clean circular edge.
   rendered at **1080 base (1.5×)** for crisp output (Wide = 1920×1080).
 - **Crisp circular edge** — only the artwork rotates; a static anti-aliased
   circular mask is overlaid, so the disc edge never re-samples (no jagged edge).
+- **Smooth, fluid motion** — adaptive **motion blur** (sub-frame averaging via
+  ffmpeg `tmix`) removes the strobing/stepping look of a sharp spinning disc.
 - **Fast & constant render time** — a 6-minute song exports in roughly the same
   time as a 1-minute clip (see *How it works*).
 - **Live progress** — an animated bar while the rotation renders, then a real
@@ -56,11 +58,16 @@ Everything runs in the browser using **[ffmpeg.wasm](https://ffmpegwasm.netlify.
    - A **static full-canvas overlay** is built: background colour / image, a soft
      drop shadow, a transparent circular hole, the outer edge ring and the centre
      spindle hole.
-2. **Rotation (ffmpeg.wasm)**
+2. **Rotation + motion blur (ffmpeg.wasm)**
    - Only the **artwork** is rotated (expanded to its diagonal so it always
-     covers the circular hole), composited on black, then the **static frame** is
-     overlaid → the circular edge stays a fixed, smooth circle.
-   - Encoded with **libx264**, `yuv420p`, `crf 20`, `preset veryfast`.
+     covers the circular hole) and composited on black.
+   - The spin is rendered at **SUB× fps**, then `tmix` averages every SUB
+     sub-frames back down to fps → real motion blur → fluid, non-strobing
+     rotation. **SUB is adaptive** (up to 4×): render cost ∝ frames × SUB, so it
+     scales down automatically at very low RPM (where one revolution is many
+     frames and blur barely helps) to keep render time bounded.
+   - The **static frame** is overlaid *after* the blur → the circular edge stays
+     razor-sharp. Encoded with **libx264**, `yuv420p`, `crf 20`, `preset veryfast`.
 3. **Periodic-loop optimisation (constant render time)**
    - Only **one full revolution** of the disc is rendered (a fixed, small number
      of frames). That segment is then repeated with `-stream_loop` (no
