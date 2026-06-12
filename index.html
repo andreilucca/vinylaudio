@@ -238,6 +238,16 @@
     .progress-track { height: 4px; background: var(--surface3); border-radius: 2px; overflow: hidden; }
     .progress-fill  { height: 100%; background: var(--accent); border-radius: 2px;
                       transition: width 0.35s linear; width: 0%; }
+    /* Indeterminate "working" animation — a stripe sweeping across the track
+       so the user sees motion while the server renders (no exact %). */
+    .progress-track.indeterminate .progress-fill {
+      width: 35% !important; transition: none;
+      animation: indet 1.1s ease-in-out infinite;
+    }
+    @keyframes indet {
+      0%   { margin-left: -35%; }
+      100% { margin-left: 100%; }
+    }
     .progress-label { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.4rem; text-align: center; }
 
     .status-badge {
@@ -313,7 +323,6 @@
     }
     .btn-clear-mini:hover { color: var(--danger); }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.2/build/mp4-muxer.min.js"></script>
 </head>
 <body>
 
@@ -364,7 +373,7 @@
       <!-- Waveform timeline (appears after audio load) -->
       <div class="waveform-wrap" id="waveformWrap">
         <div class="waveform-header">
-          <span class="waveform-hint">Full song — entire track will be used</span>
+          <span class="waveform-hint" id="waveformHint">Full song — entire track will be used</span>
           <span class="waveform-time" id="waveformTime">0:00</span>
         </div>
         <div class="waveform-canvas-wrap" id="waveformWrap2">
@@ -385,47 +394,47 @@
       <div class="section-label">Format</div>
       <div class="format-grid" id="formatGrid">
 
-        <div class="format-card active" data-ratio="1:1" data-w="1080" data-h="1080">
+        <div class="format-card active" data-ratio="1:1" data-w="720" data-h="720">
           <div class="format-preview">
             <svg width="28" height="28" viewBox="0 0 28 28">
               <rect x="3" y="3" width="22" height="22" rx="2" fill="rgba(29,185,84,0.15)" stroke="var(--accent)" stroke-width="1.5"/>
             </svg>
           </div>
           <div class="format-name">SQUARE</div>
-          <div class="format-ratio">1080 × 1080</div>
+          <div class="format-ratio">720 × 720</div>
           <div class="format-platforms">Instagram<br>Facebook</div>
         </div>
 
-        <div class="format-card" data-ratio="4:5" data-w="1080" data-h="1350">
+        <div class="format-card" data-ratio="4:5" data-w="720" data-h="900">
           <div class="format-preview">
             <svg width="28" height="28" viewBox="0 0 28 28">
               <rect x="6" y="2" width="16" height="24" rx="2" fill="var(--surface3)" stroke="var(--text-dim)" stroke-width="1.5"/>
             </svg>
           </div>
           <div class="format-name">PORTRAIT</div>
-          <div class="format-ratio">1080 × 1350</div>
+          <div class="format-ratio">720 × 900</div>
           <div class="format-platforms">Instagram<br>Feed</div>
         </div>
 
-        <div class="format-card" data-ratio="9:16" data-w="1080" data-h="1920">
+        <div class="format-card" data-ratio="9:16" data-w="720" data-h="1280">
           <div class="format-preview">
             <svg width="28" height="28" viewBox="0 0 28 28">
               <rect x="8" y="1" width="12" height="26" rx="2" fill="var(--surface3)" stroke="var(--text-dim)" stroke-width="1.5"/>
             </svg>
           </div>
           <div class="format-name">STORY</div>
-          <div class="format-ratio">1080 × 1920</div>
+          <div class="format-ratio">720 × 1280</div>
           <div class="format-platforms">TikTok<br>Reels</div>
         </div>
 
-        <div class="format-card" data-ratio="16:9" data-w="1920" data-h="1080">
+        <div class="format-card" data-ratio="16:9" data-w="1280" data-h="720">
           <div class="format-preview">
             <svg width="28" height="28" viewBox="0 0 28 28">
               <rect x="2" y="7" width="24" height="14" rx="2" fill="var(--surface3)" stroke="var(--text-dim)" stroke-width="1.5"/>
             </svg>
           </div>
           <div class="format-name">WIDE</div>
-          <div class="format-ratio">1920 × 1080</div>
+          <div class="format-ratio">1280 × 720</div>
           <div class="format-platforms">YouTube<br>Twitter</div>
         </div>
 
@@ -516,7 +525,7 @@
       </a>
 
       <div class="progress-wrap" id="progressWrap">
-        <div class="progress-track">
+        <div class="progress-track" id="progressTrack">
           <div class="progress-fill" id="progressFill"></div>
         </div>
         <div class="progress-label" id="progressLabel">0:00 / 0:00</div>
@@ -555,8 +564,8 @@ const S = {
   rpm:            33,
   bgColor:        "#111111",
   ratio:          "1:1",
-  canvasW:        1080,
-  canvasH:        1080,
+  canvasW:        720,
+  canvasH:        720,
   vinylPct:       0.86,
   audioDuration:  0,
   silentDuration: 30,    // seconds used when no audio, or manual override
@@ -584,6 +593,7 @@ const btnRecord     = document.getElementById("btnRecord");
 const btnStop       = document.getElementById("btnStop");
 const btnDownload   = document.getElementById("btnDownload");
 const progressWrap  = document.getElementById("progressWrap");
+const progressTrack = document.getElementById("progressTrack");
 const progressFill  = document.getElementById("progressFill");
 const progressLabel = document.getElementById("progressLabel");
 const statusBadge   = document.getElementById("statusBadge");
@@ -593,6 +603,7 @@ const toast         = document.getElementById("toast");
 const waveformWrap  = document.getElementById("waveformWrap");
 const waveformCanvas= document.getElementById("waveformCanvas");
 const waveformTime  = document.getElementById("waveformTime");
+const waveformHint  = document.getElementById("waveformHint");
 const trimDuration  = document.getElementById("trimDuration");
 const btnPreview    = document.getElementById("btnPreview");
 const durationRow   = document.getElementById("durationRow");
@@ -610,14 +621,19 @@ let albumArt        = null;
 let animId          = null;
 let animStartTs     = null;
 
-// Recording — WebCodecs + mp4-muxer (CFR, no VFR jitter)
+// Raw File references uploaded to the server-side ffmpeg renderer.
+let imageFileRef    = null;
+let bgImageFileRef  = null;
+let fgImageFileRef  = null;
+let exportAbort     = null;   // AbortController for the in-flight /export request
+
+// Export — final MP4 is rendered server-side (server.py + ffmpeg).
 const REC_FPS      = 30;
-let videoEncoder   = null;
-let audioEncoder   = null;
-let muxer          = null;
-let recFrameCount  = 0;
-let recTotalFrames = 0;
-let recLastFrameTs = 0;
+// Preview canvas is 720-based for speed; the exported MP4 is rendered at
+// 1.5× (1080 base) for a crisp, high-resolution result. Dimensions are
+// forced even (libx264/yuv420p requirement).
+const EXPORT_SCALE = 1.5;
+const evenUp = (n) => { const v = Math.round(n * EXPORT_SCALE); return v % 2 ? v + 1 : v; };
 let audioFileRef   = null;
 let lastBlob       = null;
 let lastBlobUrl    = null;
@@ -632,146 +648,140 @@ let previewTimeout  = null;
 function applyCanvasSize() {
   canvas.width  = S.canvasW;
   canvas.height = S.canvasH;
+  invalidateSprites();
   draw();
 }
 
-// ── DISC DRAW ──────────────────────────────────────────────
-function draw() {
-  const W  = canvas.width;
-  const H  = canvas.height;
-  const cx = W / 2;
-  const cy = H / 2;
+// ── PRE-RENDERED SPRITES ───────────────────────────────────
+// Everything except the disc's ROTATION is static. We render the heavy
+// stuff (background, blurred drop-shadow, album art clipped to a circle,
+// rings, spindle hole) ONCE into offscreen canvases. Each animation/export
+// frame then costs just 2–3 drawImage calls + one rotation — orders of
+// magnitude cheaper than re-running shadowBlur/gradients every frame.
+let bgSprite   = null;   // bgColor + bgImage + static drop shadow
+let discSprite = null;   // rotating disc content (art + ring + hole)
+let spriteR    = 0;      // disc radius baked into discSprite
+
+function invalidateSprites() { bgSprite = null; discSprite = null; }
+
+function buildSprites() {
+  const W  = S.canvasW, H = S.canvasH;
+  const cx = W / 2, cy = H / 2;
   const R  = Math.min(W, H) * (S.vinylPct / 2);
-  const holeR = R * 0.022;
+  spriteR  = R;
 
-  ctx.fillStyle = S.bgColor;
-  ctx.fillRect(0, 0, W, H);
-
-  // Background image (cover-fit, drawn over bgColor)
+  // ---- Background sprite (static) ----
+  bgSprite = document.createElement("canvas");
+  bgSprite.width = W; bgSprite.height = H;
+  const b = bgSprite.getContext("2d");
+  b.fillStyle = S.bgColor;
+  b.fillRect(0, 0, W, H);
   if (S.bgImage) {
     const iw = S.bgImage.naturalWidth  || S.bgImage.width;
     const ih = S.bgImage.naturalHeight || S.bgImage.height;
     const sc = Math.max(W / iw, H / ih);
-    ctx.drawImage(S.bgImage, (W - iw * sc) / 2, (H - ih * sc) / 2, iw * sc, ih * sc);
+    b.drawImage(S.bgImage, (W - iw * sc) / 2, (H - ih * sc) / 2, iw * sc, ih * sc);
   }
+  b.save();
+  b.shadowColor   = "rgba(0,0,0,0.72)";
+  b.shadowBlur    = 60;
+  b.shadowOffsetY = 18;
+  b.beginPath();
+  b.arc(cx, cy, R, 0, Math.PI * 2);
+  b.fillStyle = "#000";
+  b.fill();
+  b.restore();
 
-  // Static drop shadow
-  ctx.save();
-  ctx.shadowColor   = "rgba(0,0,0,0.72)";
-  ctx.shadowBlur    = 60;
-  ctx.shadowOffsetY = 18;
-  ctx.beginPath();
-  ctx.arc(cx, cy, R, 0, Math.PI * 2);
-  ctx.fillStyle = "#000";
-  ctx.fill();
-  ctx.restore();
-
-  // Rotating group
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate((S.angle * Math.PI) / 180);
+  // ---- Disc sprite (rotates) ----
+  const D  = Math.max(2, Math.ceil(R * 2));
+  const dc = D / 2;
+  discSprite = document.createElement("canvas");
+  discSprite.width = D; discSprite.height = D;
+  const d = discSprite.getContext("2d");
+  const holeR = R * 0.022;
 
   if (albumArt) {
-    // Clip to circle, draw full image (cover-fit on shorter axis)
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(0, 0, R, 0, Math.PI * 2);
-    ctx.clip();
+    d.save();
+    d.beginPath();
+    d.arc(dc, dc, R, 0, Math.PI * 2);
+    d.clip();
     const iw    = albumArt.naturalWidth  || albumArt.width;
     const ih    = albumArt.naturalHeight || albumArt.height;
-    const diam  = R * 2;
-    const scale = diam / Math.min(iw, ih);
+    const scale = (R * 2) / Math.min(iw, ih);
     const sw    = iw * scale;
     const sh    = ih * scale;
-    ctx.drawImage(albumArt, -sw / 2, -sh / 2, sw, sh);
-    ctx.restore();
+    d.drawImage(albumArt, dc - sw / 2, dc - sh / 2, sw, sh);
+    d.restore();
   } else {
-    // Placeholder disc
-    const pg = ctx.createRadialGradient(0, 0, 0, 0, 0, R);
+    const pg = d.createRadialGradient(dc, dc, 0, dc, dc, R);
     pg.addColorStop(0,   "#2e2e2e");
     pg.addColorStop(0.7, "#1a1a1a");
     pg.addColorStop(1,   "#0e0e0e");
-    ctx.beginPath();
-    ctx.arc(0, 0, R, 0, Math.PI * 2);
-    ctx.fillStyle = pg;
-    ctx.fill();
+    d.beginPath();
+    d.arc(dc, dc, R, 0, Math.PI * 2);
+    d.fillStyle = pg;
+    d.fill();
     const fs = Math.round(R * 0.09);
-    ctx.fillStyle    = "rgba(255,255,255,0.15)";
-    ctx.font         = `600 ${fs}px -apple-system, sans-serif`;
-    ctx.textAlign    = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("Upload your photo", 0, 0);
+    d.fillStyle    = "rgba(255,255,255,0.15)";
+    d.font         = `600 ${fs}px -apple-system, sans-serif`;
+    d.textAlign    = "center";
+    d.textBaseline = "middle";
+    d.fillText("Upload your photo", dc, dc);
   }
 
   // Outer edge ring
-  ctx.beginPath();
-  ctx.arc(0, 0, R - 1, 0, Math.PI * 2);
-  ctx.strokeStyle = "rgba(255,255,255,0.14)";
-  ctx.lineWidth   = 2;
-  ctx.stroke();
+  d.beginPath();
+  d.arc(dc, dc, R - 1, 0, Math.PI * 2);
+  d.strokeStyle = "rgba(255,255,255,0.14)";
+  d.lineWidth   = 2;
+  d.stroke();
 
   // Center spindle hole
-  ctx.beginPath();
-  ctx.arc(0, 0, holeR, 0, Math.PI * 2);
-  ctx.fillStyle   = S.bgImage ? "#0a0a0a" : S.bgColor;
-  ctx.fill();
-  ctx.strokeStyle = "rgba(255,255,255,0.22)";
-  ctx.lineWidth   = 0.8;
-  ctx.stroke();
+  d.beginPath();
+  d.arc(dc, dc, holeR, 0, Math.PI * 2);
+  d.fillStyle   = S.bgImage ? "#0a0a0a" : S.bgColor;
+  d.fill();
+  d.strokeStyle = "rgba(255,255,255,0.22)";
+  d.lineWidth   = 0.8;
+  d.stroke();
+}
 
-  ctx.restore();
+// ── DISC DRAW ──────────────────────────────────────────────
+// Hot path: cheap composite of pre-rendered sprites + one rotation.
+function draw(targetCtx, W, H) {
+  targetCtx = targetCtx || ctx;
+  W = W || canvas.width;
+  H = H || canvas.height;
+  if (!bgSprite || !discSprite) buildSprites();
+
+  targetCtx.drawImage(bgSprite, 0, 0);
+
+  targetCtx.save();
+  targetCtx.translate(W / 2, H / 2);
+  targetCtx.rotate((S.angle * Math.PI) / 180);
+  targetCtx.drawImage(discSprite, -spriteR, -spriteR, spriteR * 2, spriteR * 2);
+  targetCtx.restore();
 
   // Foreground image (cover-fit, drawn on top of disc)
   if (S.fgImage) {
     const iw = S.fgImage.naturalWidth  || S.fgImage.width;
     const ih = S.fgImage.naturalHeight || S.fgImage.height;
     const sc = Math.max(W / iw, H / ih);
-    ctx.drawImage(S.fgImage, (W - iw * sc) / 2, (H - ih * sc) / 2, iw * sc, ih * sc);
+    targetCtx.drawImage(S.fgImage, (W - iw * sc) / 2, (H - ih * sc) / 2, iw * sc, ih * sc);
   }
 }
 
 // ── ANIMATION LOOP ─────────────────────────────────────────
-// Live preview: angle derived from absolute wall-clock time — smooth on screen.
-// Recording: angle derived from the frame COUNTER instead, so frame N always
-// carries the exact angle matching its timestamp (N / FPS). This guarantees a
-// perfectly linear angle↔timestamp relationship → buttery-smooth CFR playback,
-// immune to rAF jitter, GC pauses or encoder back-pressure during export.
+// Live preview only: angle derived from wall-clock time — smooth on screen.
+// Recording is handled by a separate OFFLINE loop (recordFrames) that runs
+// as fast as the encoder allows, fully decoupled from this rAF loop.
 function animLoop(ts) {
   if (!animStartTs) animStartTs = ts;
-
-  if (S.isRecording && videoEncoder && videoEncoder.state === "configured") {
-    // Back-pressure: if the encoder queue is backed up, wait a tick before
-    // feeding more frames. Frame index does NOT advance, so output stays exact.
-    if (videoEncoder.encodeQueueSize > 8) {
-      animId = requestAnimationFrame(animLoop);
-      return;
-    }
-    // Deterministic: one frame captured per rAF tick, angle locked to frame index.
-    const tSec = recFrameCount / REC_FPS;
-    S.angle = (tSec * S.rpm * 360 / 60) % 360;
-    draw();
-
-    const vts = Math.round(recFrameCount * (1_000_000 / REC_FPS));
-    try {
-      const frame = new VideoFrame(canvas, { timestamp: vts });
-      videoEncoder.encode(frame, { keyFrame: recFrameCount % REC_FPS === 0 });
-      frame.close();
-    } catch (_) {}
-    recFrameCount++;
-
-    const recDur = S.audioLoaded
-      ? (S.trimEnd - S.trimStart) * S.audioDuration
-      : S.silentDuration;
-    progressFill.style.width  = Math.min(recFrameCount / recTotalFrames * 100, 100) + "%";
-    progressLabel.textContent = fmt(recFrameCount / REC_FPS) + " / " + fmt(recDur);
-
-    if (recFrameCount >= recTotalFrames) stopRecording();
-  } else {
+  if (!S.isRecording) {
     const elapsed = ts - animStartTs;
     S.angle = (elapsed * S.rpm * 360 / 60000) % 360;
     draw();
   }
-
   animId = requestAnimationFrame(animLoop);
 }
 
@@ -786,12 +796,14 @@ function loadImg(file) {
   if (!file) return;
   const url = URL.createObjectURL(file);
   const img = new Image();
+  imageFileRef = file;
   img.onload = () => {
     albumArt = img;
     S.imageLoaded = true;
     URL.revokeObjectURL(url);
     imgZone.classList.add("has-file");
     document.getElementById("imgFilename").textContent = file.name;
+    invalidateSprites();
     checkReady();
     startAnim();
   };
@@ -873,21 +885,31 @@ function drawWaveform() {
   const cx   = W / bins;
   const maxH = H * 0.85;
 
-  // Bars up to trimEnd are "used" (green); the rest dim. Full song = all green.
+  // In manual mode the green region is the chosen window [trimStart, trimEnd];
+  // in full-song mode the whole track is green.
   for (let i = 0; i < bins; i++) {
     const xPos  = i * cx;
     const barH  = Math.max(2, waveformPeaks[i] * maxH);
     const yPos  = (H - barH) / 2;
-    const inSel = (i / bins) <= S.trimEnd;
+    const frac  = i / bins;
+    const inSel = S.manualDuration
+      ? (frac >= S.trimStart && frac <= S.trimEnd)
+      : (frac <= S.trimEnd);
     wCtx.fillStyle = inSel ? "rgba(29,185,84,0.75)" : "rgba(255,255,255,0.12)";
     wCtx.fillRect(xPos, yPos, Math.max(1, cx - 0.5), barH);
   }
 
-  // Cut marker when a manual duration shorter than the song is selected
-  if (S.manualDuration && S.trimEnd < 1) {
-    const ex = S.trimEnd * W;
+  // Draggable window: shade outside, draw start/end edges so it reads as a
+  // movable selection the user can slide through the song.
+  if (S.manualDuration && (S.trimEnd - S.trimStart) < 0.999) {
+    const sx = S.trimStart * W;
+    const ex = S.trimEnd   * W;
+    wCtx.fillStyle = "rgba(0,0,0,0.35)";
+    wCtx.fillRect(0, 0, sx, H);
+    wCtx.fillRect(ex, 0, W - ex, H);
     wCtx.fillStyle = "#1db954";
-    wCtx.fillRect(ex - 1, 0, 2, H);
+    wCtx.fillRect(sx,     0, 2, H);
+    wCtx.fillRect(ex - 2, 0, 2, H);
   }
 
   updateWaveformTime();
@@ -895,66 +917,56 @@ function drawWaveform() {
 
 function updateWaveformTime() {
   if (!S.audioLoaded) return;
-  const used = (S.trimEnd - S.trimStart) * S.audioDuration;
+  const used     = (S.trimEnd - S.trimStart) * S.audioDuration;
+  const startSec = S.trimStart * S.audioDuration;
   if (S.manualDuration) {
-    waveformTime.textContent = fmt(used) + " / " + fmt(S.audioDuration);
-    trimDuration.textContent = "Manual: " + fmt(used) + " of " + fmt(S.audioDuration);
+    waveformTime.textContent = fmt(startSec) + " – " + fmt(startSec + used);
+    trimDuration.textContent = "Clip " + fmt(used) + " · starts at " + fmt(startSec);
+    waveformHint.textContent = "Drag the green window to pick where the clip starts";
   } else {
     waveformTime.textContent = fmt(S.audioDuration);
     trimDuration.textContent = "Full length: " + fmt(S.audioDuration);
+    waveformHint.textContent = "Full song — entire track will be used";
   }
 }
 
 function setupWaveformDrag() {
   const wc = waveformCanvas;
-
-  function getHandleAt(x) {
-    const W   = wc.offsetWidth;
-    const sx  = S.trimStart * W;
-    const ex  = S.trimEnd   * W;
-    if (Math.abs(x - sx) <= 12) return "start";
-    if (Math.abs(x - ex) <= 12) return "end";
-    return null;
-  }
+  let grabOffset = 0;   // fraction between cursor and window start while dragging
 
   function posFraction(clientX) {
     const rect = wc.getBoundingClientRect();
     return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
   }
 
-  wc.addEventListener("mousedown", (e) => {
-    const x = e.clientX - wc.getBoundingClientRect().left;
-    const h = getHandleAt(x);
-    if (h) {
-      wfDragging = h;
-      e.preventDefault();
-    } else {
-      // Click anywhere = move nearest handle
-      const f = posFraction(e.clientX);
-      const dS = Math.abs(f - S.trimStart);
-      const dE = Math.abs(f - S.trimEnd);
-      wfDragging = dS < dE ? "start" : "end";
-    }
-  });
+  // Slide the fixed-width window so its start follows the cursor (minus the
+  // grab offset), clamped so the window always stays inside the track.
+  function moveWindow(clientX) {
+    const win = S.trimEnd - S.trimStart;
+    let start = posFraction(clientX) - grabOffset;
+    start = Math.max(0, Math.min(start, 1 - win));
+    S.trimStart = start;
+    S.trimEnd   = start + win;
+    drawWaveform();
+  }
 
+  function beginDrag(clientX) {
+    if (!S.audioLoaded || !S.manualDuration) return false;
+    const f   = posFraction(clientX);
+    const win = S.trimEnd - S.trimStart;
+    // Grab inside the window → keep relative offset; outside → center on cursor.
+    grabOffset = (f >= S.trimStart && f <= S.trimEnd) ? (f - S.trimStart) : win / 2;
+    wfDragging = "window";
+    moveWindow(clientX);
+    return true;
+  }
+
+  wc.addEventListener("mousedown", (e) => { if (beginDrag(e.clientX)) e.preventDefault(); });
   wc.addEventListener("touchstart", (e) => {
-    const touch = e.touches[0];
-    const x = touch.clientX - wc.getBoundingClientRect().left;
-    wfDragging = getHandleAt(x) || "start";
-    e.preventDefault();
+    if (beginDrag(e.touches[0].clientX)) e.preventDefault();
   }, { passive: false });
 
-  const onMove = (clientX) => {
-    if (!wfDragging) return;
-    const f = posFraction(clientX);
-    if (wfDragging === "start") {
-      S.trimStart = Math.max(0, Math.min(f, S.trimEnd - 0.02));
-    } else {
-      S.trimEnd   = Math.min(1, Math.max(f, S.trimStart + 0.02));
-    }
-    drawWaveform();
-  };
-
+  const onMove = (clientX) => { if (wfDragging === "window") moveWindow(clientX); };
   document.addEventListener("mousemove",  (e) => onMove(e.clientX));
   document.addEventListener("touchmove",  (e) => onMove(e.touches[0].clientX), { passive: true });
   document.addEventListener("mouseup",    () => { wfDragging = null; });
@@ -1000,10 +1012,17 @@ function stopPreview() {
 //  • audio, manual pick → trimEnd capped to S.silentDuration of the song
 function syncDuration() {
   if (S.audioLoaded) {
-    S.trimStart = 0;
-    S.trimEnd   = S.manualDuration
-      ? Math.min(S.silentDuration / S.audioDuration, 1)
-      : 1;
+    if (S.manualDuration) {
+      // Fixed-width window the user can slide through the song. Preserve the
+      // current start; only clamp so the window still fits inside the track.
+      const win = Math.min(S.silentDuration / S.audioDuration, 1);
+      S.trimStart = Math.max(0, Math.min(S.trimStart, 1 - win));
+      S.trimEnd   = S.trimStart + win;
+    } else {
+      S.trimStart = 0;
+      S.trimEnd   = 1;
+    }
+    waveformCanvas.style.cursor = S.manualDuration ? "grab" : "default";
     if (waveformPeaks.length) drawWaveform();
   }
   updateDurationButtons();
@@ -1036,20 +1055,18 @@ function setStatus(cls, msg) {
   statusText.textContent = msg;
 }
 
-// ── RECORDING ──────────────────────────────────────────────
-// Uses MediaRecorder with video/mp4 (Chrome 130+) or webm fallback.
-// canvas.captureStream() feeds the video track automatically.
-
-// ── RECORDING — WebCodecs VideoEncoder + mp4-muxer (smooth CFR output) ────
-// Replaces MediaRecorder which produced variable frame rate (VFR) causing
-// jerky rotation on playback. VideoEncoder captures frames at exact 30fps
-// intervals driven by requestAnimationFrame, guaranteeing constant frame rate.
+// ── EXPORT — server-side ffmpeg render ─────────────────────
+// The browser only previews the spinning disc. The final MP4 is rendered by
+// server.py (Flask + Pillow + ffmpeg/libx264) — the same approach turn.audio
+// uses. In-browser WebCodecs export was abandoned: the GPU encoder warmed up
+// slowly and oscillated wildly (10↔234fps), so a 1-minute clip took ~40s.
+// ffmpeg renders it in a few seconds, reliably, on any machine.
 
 async function startRecording() {
   if (S.isRecording || !S.imageLoaded) return;
 
-  if (typeof VideoEncoder === "undefined") {
-    showToast("WebCodecs not supported — use Chrome or Edge 94+.");
+  if (!imageFileRef) {
+    showToast("Upload a photo first.");
     return;
   }
 
@@ -1058,161 +1075,137 @@ async function startRecording() {
   if (lastBlobUrl) { URL.revokeObjectURL(lastBlobUrl); lastBlobUrl = null; }
   lastBlob = null;
 
-  const recDuration  = S.audioLoaded
+  const recDuration = S.audioLoaded
     ? (S.trimEnd - S.trimStart) * S.audioDuration
     : S.silentDuration;
+  const audioStart  = S.audioLoaded ? S.trimStart * S.audioDuration : 0;
 
-  recFrameCount  = 0;
-  recTotalFrames = Math.ceil(recDuration * REC_FPS);
-  recLastFrameTs = 0;
+  // Send the raw assets + settings to the server; ffmpeg renders the MP4.
+  const form = new FormData();
+  form.append("image", imageFileRef);
+  if (S.audioLoaded && audioFileRef) form.append("audio", audioFileRef);
+  if (bgImageFileRef) form.append("bg", bgImageFileRef);
+  if (fgImageFileRef) form.append("fg", fgImageFileRef);
+  form.append("w",          evenUp(S.canvasW));
+  form.append("h",          evenUp(S.canvasH));
+  form.append("rpm",        S.rpm);
+  form.append("duration",   recDuration);
+  form.append("audioStart", audioStart);
+  form.append("vinylPct",   S.vinylPct);
+  form.append("bgColor",    S.bgColor);
+  form.append("fps",        REC_FPS);
 
-  const px  = S.canvasW * S.canvasH;
-  const bps = px >= 1920 * 1080 ? 16_000_000 : px >= 1080 * 1080 ? 10_000_000 : 6_000_000;
-
-  // Decode audio and check AAC encoder support
-  let audioBuffer = null;
-  let audioSR     = 44100;
-  let audioCH     = 2;
-  let useAudio    = false;
-
-  if (S.audioLoaded && audioFileRef) {
-    try {
-      const arrayBuf = await audioFileRef.arrayBuffer();
-      const offCtx   = new OfflineAudioContext(2, 44100, 44100);
-      audioBuffer    = await offCtx.decodeAudioData(arrayBuf);
-      audioSR        = audioBuffer.sampleRate;
-      audioCH        = Math.min(audioBuffer.numberOfChannels, 2);
-
-      if (typeof AudioEncoder !== "undefined") {
-        const sup = await AudioEncoder.isConfigSupported({
-          codec: "mp4a.40.2", sampleRate: audioSR, numberOfChannels: audioCH,
-        });
-        useAudio = sup.supported;
-      }
-    } catch (e) {
-      console.warn("Audio prep failed, recording video only:", e);
-    }
-  }
-
-  // Setup mp4-muxer
-  muxer = new Mp4Muxer.Muxer({
-    target:     new Mp4Muxer.ArrayBufferTarget(),
-    video:      { codec: "avc", width: S.canvasW, height: S.canvasH },
-    ...(useAudio && { audio: { codec: "aac", sampleRate: audioSR, numberOfChannels: audioCH } }),
-    fastStart:  "in-memory",
-  });
-
-  // Setup VideoEncoder
-  videoEncoder = new VideoEncoder({
-    output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-    error:  (e) => { showToast("Video encode error: " + e.message); stopRecording(); },
-  });
-
-  const videoConfig = {
-    codec:       "avc1.640034",
-    width:        S.canvasW,
-    height:       S.canvasH,
-    bitrate:      bps,
-    framerate:    REC_FPS,
-    latencyMode: "quality",
-  };
-
-  const support = await VideoEncoder.isConfigSupported(videoConfig);
-  if (!support.supported) {
-    showToast("H.264 encoding not supported — try updating Chrome.");
-    return;
-  }
-
-  videoEncoder.configure(videoConfig);
-
-  // Pre-encode full audio before video capture starts (faster, perfectly synced)
-  if (useAudio && audioBuffer) {
-    audioEncoder = new AudioEncoder({
-      output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
-      error:  (e) => console.warn("Audio encode error:", e),
-    });
-    audioEncoder.configure({
-      codec: "mp4a.40.2", sampleRate: audioSR, numberOfChannels: audioCH, bitrate: 128_000,
-    });
-
-    const trimStartSample = Math.floor(S.trimStart * audioBuffer.duration * audioSR);
-    const trimEndSample   = Math.floor(S.trimEnd   * audioBuffer.duration * audioSR);
-    const CHUNK           = 4096;
-
-    for (let i = trimStartSample; i < trimEndSample; i += CHUNK) {
-      const n      = Math.min(CHUNK, trimEndSample - i);
-      const planar = new Float32Array(n * audioCH);
-      for (let c = 0; c < audioCH; c++) {
-        planar.set(audioBuffer.getChannelData(c).subarray(i, i + n), c * n);
-      }
-      const ts = Math.round(((i - trimStartSample) / audioSR) * 1_000_000);
-      const ad = new AudioData({
-        format:          "f32-planar",
-        sampleRate:       audioSR,
-        numberOfFrames:   n,
-        numberOfChannels: audioCH,
-        timestamp:        ts,
-        data:             planar,
-      });
-      audioEncoder.encode(ad);
-      ad.close();
-    }
-    await audioEncoder.flush();
-  }
-
-  // Start recording — frames captured inside animLoop at exactly REC_FPS
   S.isRecording = true;
-
   btnRecord.style.display   = "none";
   btnStop.style.display     = "flex";
   progressWrap.classList.add("visible");
+  progressTrack.classList.remove("indeterminate");
   progressFill.style.width  = "0%";
-  progressLabel.textContent = "0:00 / " + fmt(recDuration);
-  setStatus("recording", "Recording\u2026");
+  progressLabel.textContent = "Uploading\u2026 0%";
+  setStatus("recording", "Uploading\u2026");
+
+  const t0 = performance.now();
+  let renderTimer = null;
+
+  try {
+    const blob = await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      // Allow the Stop button to cancel the in-flight request.
+      exportAbort = { abort: () => xhr.abort() };
+
+      // Real upload progress (the audio file is the heavy part).
+      xhr.upload.onprogress = (ev) => {
+        if (!ev.lengthComputable) return;
+        const pct = Math.round((ev.loaded / ev.total) * 100);
+        progressFill.style.width  = pct + "%";
+        progressLabel.textContent = "Uploading\u2026 " + pct + "%";
+      };
+
+      // Upload finished → server is now rendering. Switch to an animated
+      // indeterminate bar with a live elapsed timer so the user sees motion.
+      xhr.upload.onload = () => {
+        progressTrack.classList.add("indeterminate");
+        setStatus("recording", "Rendering MP4 on server\u2026");
+        renderTimer = setInterval(() => {
+          const secs = ((performance.now() - t0) / 1000).toFixed(0);
+          progressLabel.textContent = "Rendering on server\u2026 " + secs + "s";
+        }, 200);
+      };
+
+      xhr.responseType = "blob";
+      xhr.open("POST", "/export");
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(xhr.response);
+        } else {
+          // Try to read an error message out of the JSON error body.
+          const fr = new FileReader();
+          fr.onload = () => {
+            let detail = "";
+            try { detail = JSON.parse(fr.result).error || ""; } catch (_) {}
+            reject(new Error(detail || ("server " + xhr.status)));
+          };
+          fr.onerror = () => reject(new Error("server " + xhr.status));
+          fr.readAsText(xhr.response);
+        }
+      };
+      xhr.onerror  = () => reject(new Error("network error"));
+      xhr.onabort  = () => { const e = new Error("aborted"); e.name = "AbortError"; reject(e); };
+      xhr.send(form);
+    });
+    if (renderTimer) clearInterval(renderTimer);
+    progressTrack.classList.remove("indeterminate");
+    finishExport(blob, performance.now() - t0);
+  } catch (e) {
+    if (renderTimer) clearInterval(renderTimer);
+    progressTrack.classList.remove("indeterminate");
+    if (e.name === "AbortError") {
+      setStatus("", "Cancelled.");
+      progressWrap.classList.remove("visible");
+    } else {
+      showToast("Export failed: " + e.message);
+      setStatus("", "Export error \u2014 try again.");
+      console.error(e);
+    }
+  } finally {
+    exportAbort = null;
+    resetRecUI();
+  }
 }
 
-function stopRecording() {
-  if (!S.isRecording) return;
-  S.isRecording = false;
-
+function resetRecUI() {
+  S.isRecording          = false;
   btnStop.style.display   = "none";
   btnRecord.style.display = "flex";
   btnRecord.disabled      = false;
-  setStatus("encoding", "Encoding MP4\u2026");
-
-  finalizeVideo();
 }
 
-async function finalizeVideo() {
-  try {
-    await videoEncoder.flush();
-    muxer.finalize();
+// Stop button: abort the in-flight server request.
+function stopRecording() {
+  if (!S.isRecording) return;
+  if (exportAbort) exportAbort.abort();
+  setStatus("", "Cancelling\u2026");
+}
 
-    const { buffer } = muxer.target;
-    const blob       = new Blob([buffer], { type: "video/mp4" });
-    lastBlob         = blob;
-    if (lastBlobUrl) URL.revokeObjectURL(lastBlobUrl);
-    lastBlobUrl = URL.createObjectURL(blob);
+function finishExport(blob, elapsedMs) {
+  lastBlob = blob;
+  if (lastBlobUrl) URL.revokeObjectURL(lastBlobUrl);
+  lastBlobUrl = URL.createObjectURL(blob);
 
-    const sizeKB  = Math.round(blob.size / 1024);
-    const sizeStr = sizeKB > 1024 ? (sizeKB / 1024).toFixed(1) + " MB" : sizeKB + " KB";
-    const fname   = "storytellers-" + S.ratio.replace(":", "x") + "-" + S.canvasW + "x" + S.canvasH + ".mp4";
+  const sizeKB  = Math.round(blob.size / 1024);
+  const sizeStr = sizeKB > 1024 ? (sizeKB / 1024).toFixed(1) + " MB" : sizeKB + " KB";
+  const fname   = "storytellers-" + S.ratio.replace(":", "x") + "-" + evenUp(S.canvasW) + "x" + evenUp(S.canvasH) + ".mp4";
 
-    btnDownload.href          = lastBlobUrl;
-    btnDownload.download      = fname;
-    btnDownload.style.display = "flex";
-    btnDownload.innerHTML     = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download MP4`;
+  btnDownload.href          = lastBlobUrl;
+  btnDownload.download      = fname;
+  btnDownload.style.display = "flex";
+  btnDownload.innerHTML     = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download MP4`;
 
-    progressFill.style.width  = "100%";
-    progressLabel.textContent = "Ready \u2014 " + sizeStr;
-    setStatus("ready", "Done! Click Download MP4 to save.");
-    showToast("MP4 ready \u2014 " + sizeStr);
-
-  } catch (e) {
-    showToast("Encode failed: " + e.message);
-    setStatus("", "Encode error \u2014 try again.");
-    console.error(e);
-  }
+  const secs = (elapsedMs / 1000).toFixed(1);
+  progressFill.style.width  = "100%";
+  progressLabel.textContent = "Ready \u2014 " + sizeStr;
+  setStatus("ready", `Done in ${secs}s \u2014 ${sizeStr}`);
+  showToast("MP4 ready \u2014 " + sizeStr);
 }
 
 // ── HELPERS ────────────────────────────────────────────────
@@ -1251,11 +1244,13 @@ function loadBgImg(file) {
   if (!file) return;
   const url = URL.createObjectURL(file);
   const img = new Image();
+  bgImageFileRef = file;
   img.onload = () => {
     S.bgImage = img;
     bgImgZone.classList.add("has-file");
     bgImgLabel.textContent = file.name.length > 14 ? file.name.slice(0, 12) + "\u2026" : file.name;
     bgImgClear.style.display = "inline";
+    invalidateSprites();
     if (!animId) draw();
   };
   img.onerror = () => showToast("Could not load background image.");
@@ -1266,6 +1261,7 @@ function loadFgImg(file) {
   if (!file) return;
   const url = URL.createObjectURL(file);
   const img = new Image();
+  fgImageFileRef = file;
   img.onload = () => {
     S.fgImage = img;
     fgImgZone.classList.add("has-file");
@@ -1282,15 +1278,18 @@ fgImgInput.addEventListener("change", (e) => loadFgImg(e.target.files[0]));
 
 bgImgClear.addEventListener("click", () => {
   S.bgImage = null;
+  bgImageFileRef = null;
   bgImgZone.classList.remove("has-file");
   bgImgLabel.textContent = "Upload";
   bgImgClear.style.display = "none";
   bgImgInput.value = "";
+  invalidateSprites();
   if (!animId) draw();
 });
 
 fgImgClear.addEventListener("click", () => {
   S.fgImage = null;
+  fgImageFileRef = null;
   fgImgZone.classList.remove("has-file");
   fgImgLabel.textContent = "Upload";
   fgImgClear.style.display = "none";
@@ -1302,6 +1301,7 @@ makeDrop(audioZone, loadAudio);
 bgColorInput.addEventListener("input", () => {
   S.bgColor = bgColorInput.value;
   bgHex.textContent = bgColorInput.value;
+  invalidateSprites();
   if (!animId) draw();
 });
 
@@ -1313,6 +1313,7 @@ rpmSlider.addEventListener("input", () => {
 sizeSlider.addEventListener("input", () => {
   S.vinylPct = parseInt(sizeSlider.value, 10) / 100;
   sizeVal.textContent = sizeSlider.value + "%";
+  invalidateSprites();
   if (!animId) draw();
 });
 
@@ -1356,6 +1357,7 @@ btnPreview.addEventListener("click",  togglePreview);
 
 // ── INIT ───────────────────────────────────────────────────
 applyCanvasSize();
+setupWaveformDrag();
 checkReady();
 startAnim();
 

@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Rendered / test media
+*.mp4
+!reference.mp4
+
+# OS
+Thumbs.db
+.DS_Store
