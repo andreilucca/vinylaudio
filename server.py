@@ -291,5 +291,7 @@ def export():
 
 if __name__ == "__main__":
     print(f"ffmpeg: {FFMPEG}")
-    print("Storytellers server → http://localhost:8000/")
-    app.run(host="127.0.0.1", port=8000, threaded=True)
+    host = os.environ.get("HOST", "127.0.0.1")
+    port = int(os.environ.get("PORT", "8000"))
+    print(f"Storytellers server → http://{host}:{port}/")
+    app.run(host=host, port=port, threaded=True)
