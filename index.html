@@ -323,6 +323,11 @@
     }
     .btn-clear-mini:hover { color: var(--danger); }
   </style>
+  <!-- ffmpeg.wasm (vendored locally for reliable same-origin loading) —
+       in-browser H.264 encode/loop/mux. The heavy ~31MB core is fetched lazily
+       on the first export, then cached by the browser. -->
+  <script src="vendor/ffmpeg/ffmpeg.js"></script>
+  <script src="vendor/ffmpeg/util.js"></script>
 </head>
 <body>
 
@@ -546,7 +551,7 @@
 </main>
 
 <footer>
-  <div class="footer-note">Chrome / Edge 94+ required · MP4 H.264 CFR 30fps · up to 16 Mbps · no watermark</div>
+  <div class="footer-note">Renders 100% in your browser · 1080 · MP4 H.264 · any song length · no watermark · no upload</div>
   <div class="footer-tip"><strong>Tip:</strong> Square photos give the cleanest disc look.</div>
 </footer>
 
@@ -635,6 +640,7 @@ const REC_FPS      = 30;
 const EXPORT_SCALE = 1.5;
 const evenUp = (n) => { const v = Math.round(n * EXPORT_SCALE); return v % 2 ? v + 1 : v; };
 let audioFileRef   = null;
+let audioBuffer    = null;   // decoded PCM, muxed into the in-browser recording
 let lastBlob       = null;
 let lastBlobUrl    = null;
 
@@ -664,16 +670,18 @@ let spriteR    = 0;      // disc radius baked into discSprite
 
 function invalidateSprites() { bgSprite = null; discSprite = null; }
 
-function buildSprites() {
-  const W  = S.canvasW, H = S.canvasH;
+// Builds the static background + rotating disc at ANY resolution. The preview
+// uses it at S.canvasW/H; the in-browser exporter uses it at the (larger)
+// export size so the recorded MP4/WebM is crisp at full resolution.
+function buildSpriteSet(W, H) {
   const cx = W / 2, cy = H / 2;
   const R  = Math.min(W, H) * (S.vinylPct / 2);
-  spriteR  = R;
+  const k  = W / 720;   // scale shadow to match the preview proportionally
 
   // ---- Background sprite (static) ----
-  bgSprite = document.createElement("canvas");
-  bgSprite.width = W; bgSprite.height = H;
-  const b = bgSprite.getContext("2d");
+  const bg = document.createElement("canvas");
+  bg.width = W; bg.height = H;
+  const b = bg.getContext("2d");
   b.fillStyle = S.bgColor;
   b.fillRect(0, 0, W, H);
   if (S.bgImage) {
@@ -684,8 +692,8 @@ function buildSprites() {
   }
   b.save();
   b.shadowColor   = "rgba(0,0,0,0.72)";
-  b.shadowBlur    = 60;
-  b.shadowOffsetY = 18;
+  b.shadowBlur    = 60 * k;
+  b.shadowOffsetY = 18 * k;
   b.beginPath();
   b.arc(cx, cy, R, 0, Math.PI * 2);
   b.fillStyle = "#000";
@@ -695,9 +703,9 @@ function buildSprites() {
   // ---- Disc sprite (rotates) ----
   const D  = Math.max(2, Math.ceil(R * 2));
   const dc = D / 2;
-  discSprite = document.createElement("canvas");
-  discSprite.width = D; discSprite.height = D;
-  const d = discSprite.getContext("2d");
+  const disc = document.createElement("canvas");
+  disc.width = D; disc.height = D;
+  const d = disc.getContext("2d");
   const holeR = R * 0.022;
 
   if (albumArt) {
@@ -744,6 +752,13 @@ function buildSprites() {
   d.strokeStyle = "rgba(255,255,255,0.22)";
   d.lineWidth   = 0.8;
   d.stroke();
+
+  return { bg, disc, R };
+}
+
+function buildSprites() {
+  const set = buildSpriteSet(S.canvasW, S.canvasH);
+  bgSprite = set.bg; discSprite = set.disc; spriteR = set.R;
 }
 
 // ── DISC DRAW ──────────────────────────────────────────────
@@ -768,6 +783,23 @@ function draw(targetCtx, W, H) {
     const ih = S.fgImage.naturalHeight || S.fgImage.height;
     const sc = Math.max(W / iw, H / ih);
     targetCtx.drawImage(S.fgImage, (W - iw * sc) / 2, (H - ih * sc) / 2, iw * sc, ih * sc);
+  }
+}
+
+// Parametric draw used by the in-browser exporter. Independent of the preview
+// globals so it can render at the export resolution into an offscreen canvas.
+function drawWith(tctx, W, H, set, angleDeg) {
+  tctx.drawImage(set.bg, 0, 0);
+  tctx.save();
+  tctx.translate(W / 2, H / 2);
+  tctx.rotate((angleDeg * Math.PI) / 180);
+  tctx.drawImage(set.disc, -set.R, -set.R, set.R * 2, set.R * 2);
+  tctx.restore();
+  if (S.fgImage) {
+    const iw = S.fgImage.naturalWidth  || S.fgImage.width;
+    const ih = S.fgImage.naturalHeight || S.fgImage.height;
+    const sc = Math.max(W / iw, H / ih);
+    tctx.drawImage(S.fgImage, (W - iw * sc) / 2, (H - ih * sc) / 2, iw * sc, ih * sc);
   }
 }
 
@@ -843,6 +875,7 @@ async function decodeAndDrawWaveform(arrayBuffer) {
   try {
     const offCtx = new OfflineAudioContext(1, 1, 44100);
     const buf    = await offCtx.decodeAudioData(arrayBuffer);
+    audioBuffer  = buf;   // keep the decoded PCM for the in-browser exporter
     const data   = buf.getChannelData(0);
     const totalSamples = data.length;
     const BINS   = 500;
@@ -1055,117 +1088,275 @@ function setStatus(cls, msg) {
   statusText.textContent = msg;
 }
 
-// ── EXPORT — server-side ffmpeg render ─────────────────────
-// The browser only previews the spinning disc. The final MP4 is rendered by
-// server.py (Flask + Pillow + ffmpeg/libx264) — the same approach turn.audio
-// uses. In-browser WebCodecs export was abandoned: the GPU encoder warmed up
-// slowly and oscillated wildly (10↔234fps), so a 1-minute clip took ~40s.
-// ffmpeg renders it in a few seconds, reliably, on any machine.
+// ── EXPORT — 100% in-browser render (ffmpeg.wasm) ──────────
+// Mirrors server.py exactly, but runs ffmpeg compiled to WebAssembly right in
+// the browser — no server, free, works from GitHub Pages. The disc spin is
+// perfectly periodic, so we render only ONE short looping segment (a whole
+// number of revolutions) and then stream-copy-loop it to the full song length
+// and mux the audio. Render time is therefore CONSTANT regardless of whether
+// the song is 30 seconds or 15 minutes — ideal for full-length YouTube uploads.
+
+let ffmpegInstance = null;   // cached FFmpeg instance (core downloaded once)
+let ffmpegLoading  = null;   // in-flight load promise
+
+async function getFFmpeg(onStartLoad) {
+  if (ffmpegInstance) return ffmpegInstance;
+  if (ffmpegLoading)  return ffmpegLoading;
+  ffmpegLoading = (async () => {
+    if (!window.FFmpegWASM || !window.FFmpegUtil) {
+      throw new Error("ffmpeg engine failed to load (check your connection)");
+    }
+    const { FFmpeg }    = window.FFmpegWASM;
+    const { toBlobURL } = window.FFmpegUtil;
+    const abs = (p) => new URL(p, location.href).href;
+    const ff  = new FFmpeg();
+    if (onStartLoad) onStartLoad();
+    // core.js + wasm as blob URLs (so the worker's importScripts treats them as
+    // same-origin). Let ffmpeg.js use its own bundled worker (it resolves the
+    // 814 chunk relative to ffmpeg.js, which we serve same-origin).
+    await ff.load({
+      coreURL: await toBlobURL(abs("vendor/ffmpeg/ffmpeg-core.js"),   "text/javascript"),
+      wasmURL: await toBlobURL(abs("vendor/ffmpeg/ffmpeg-core.wasm"), "application/wasm"),
+    });
+    ffmpegInstance = ff;
+    return ff;
+  })();
+  try { return await ffmpegLoading; }
+  finally { ffmpegLoading = null; }
+}
+
+// Square artwork (cover-fit), no clip — the clean circular edge comes from the
+// static frame overlay (mirrors server.py build_art).
+function exportArtCanvas(W, H) {
+  const R  = Math.min(W, H) * (S.vinylPct / 2);
+  const D  = Math.max(2, Math.ceil(R * 2));
+  const dc = D / 2;
+  const c  = document.createElement("canvas");
+  c.width  = D; c.height = D;
+  const d  = c.getContext("2d");
+  if (albumArt) {
+    const iw    = albumArt.naturalWidth  || albumArt.width;
+    const ih    = albumArt.naturalHeight || albumArt.height;
+    const scale = (R * 2) / Math.min(iw, ih);
+    d.drawImage(albumArt, dc - iw * scale / 2, dc - ih * scale / 2, iw * scale, ih * scale);
+  } else {
+    const pg = d.createRadialGradient(dc, dc, 0, dc, dc, R);
+    pg.addColorStop(0, "#2e2e2e"); pg.addColorStop(0.7, "#1a1a1a"); pg.addColorStop(1, "#0e0e0e");
+    d.fillStyle = pg; d.fillRect(0, 0, D, D);
+  }
+  return c;
+}
+
+// Full-canvas static overlay: background, drop shadow, transparent circular
+// hole, edge ring and spindle hole (mirrors server.py build_frame).
+function exportFrameCanvas(W, H) {
+  const R  = Math.min(W, H) * (S.vinylPct / 2);
+  const cx = W / 2, cy = H / 2;
+  const k  = Math.min(W, H) / 720;
+  const c  = document.createElement("canvas");
+  c.width  = W; c.height = H;
+  const b  = c.getContext("2d");
+
+  b.fillStyle = S.bgColor;
+  b.fillRect(0, 0, W, H);
+  if (S.bgImage) {
+    const iw = S.bgImage.naturalWidth  || S.bgImage.width;
+    const ih = S.bgImage.naturalHeight || S.bgImage.height;
+    const sc = Math.max(W / iw, H / ih);
+    b.drawImage(S.bgImage, (W - iw * sc) / 2, (H - ih * sc) / 2, iw * sc, ih * sc);
+  }
+
+  // Drop shadow (blurred dark disc, offset down).
+  b.save();
+  b.shadowColor = "rgba(0,0,0,0.72)";
+  b.shadowBlur  = 60 * k;
+  b.shadowOffsetY = 18 * k;
+  b.beginPath(); b.arc(cx, cy, R, 0, Math.PI * 2);
+  b.fillStyle = "#000"; b.fill();
+  b.restore();
+
+  // Punch a transparent circular hole so the spinning art shows through.
+  b.save();
+  b.globalCompositeOperation = "destination-out";
+  b.beginPath(); b.arc(cx, cy, R, 0, Math.PI * 2);
+  b.fillStyle = "#000"; b.fill();
+  b.restore();
+
+  // Edge ring + centre spindle hole (drawn on top, static).
+  b.beginPath(); b.arc(cx, cy, R - 1, 0, Math.PI * 2);
+  b.strokeStyle = "rgba(255,255,255,0.14)"; b.lineWidth = 2; b.stroke();
+  const holeR = R * 0.022;
+  b.beginPath(); b.arc(cx, cy, holeR, 0, Math.PI * 2);
+  b.fillStyle = S.bgImage ? "#0a0a0a" : S.bgColor; b.fill();
+  b.strokeStyle = "rgba(255,255,255,0.22)"; b.lineWidth = 0.8; b.stroke();
+  return c;
+}
+
+function exportFgCanvas(W, H) {
+  const c = document.createElement("canvas");
+  c.width = W; c.height = H;
+  const x = c.getContext("2d");
+  const iw = S.fgImage.naturalWidth  || S.fgImage.width;
+  const ih = S.fgImage.naturalHeight || S.fgImage.height;
+  const sc = Math.max(W / iw, H / ih);
+  x.drawImage(S.fgImage, (W - iw * sc) / 2, (H - ih * sc) / 2, iw * sc, ih * sc);
+  return c;
+}
+
+function canvasBytes(c) {
+  return new Promise((resolve) => {
+    c.toBlob(async (blob) => resolve(new Uint8Array(await blob.arrayBuffer())), "image/png");
+  });
+}
 
 async function startRecording() {
   if (S.isRecording || !S.imageLoaded) return;
-
-  if (!imageFileRef) {
-    showToast("Upload a photo first.");
-    return;
-  }
 
   stopPreview();
   btnDownload.style.display = "none";
   if (lastBlobUrl) { URL.revokeObjectURL(lastBlobUrl); lastBlobUrl = null; }
   lastBlob = null;
 
-  const recDuration = S.audioLoaded
+  const duration = S.audioLoaded
     ? (S.trimEnd - S.trimStart) * S.audioDuration
     : S.silentDuration;
-  const audioStart  = S.audioLoaded ? S.trimStart * S.audioDuration : 0;
+  const audioStart = S.audioLoaded ? S.trimStart * S.audioDuration : 0;
+  const hasAudio   = S.audioLoaded && !!audioFileRef;
 
-  // Send the raw assets + settings to the server; ffmpeg renders the MP4.
-  const form = new FormData();
-  form.append("image", imageFileRef);
-  if (S.audioLoaded && audioFileRef) form.append("audio", audioFileRef);
-  if (bgImageFileRef) form.append("bg", bgImageFileRef);
-  if (fgImageFileRef) form.append("fg", fgImageFileRef);
-  form.append("w",          evenUp(S.canvasW));
-  form.append("h",          evenUp(S.canvasH));
-  form.append("rpm",        S.rpm);
-  form.append("duration",   recDuration);
-  form.append("audioStart", audioStart);
-  form.append("vinylPct",   S.vinylPct);
-  form.append("bgColor",    S.bgColor);
-  form.append("fps",        REC_FPS);
+  const W   = evenUp(S.canvasW);
+  const H   = evenUp(S.canvasH);
+  const fps = 30;
+
+  // Periodic-loop maths. A spinning disc repeats exactly after one revolution,
+  // so we render only the SHORTEST seamless segment and stream-copy-loop it to
+  // the full song length — render time is then constant (a few seconds) no
+  // matter if the track is 30s or 15 minutes.
+  //   • We render exactly ONE revolution.
+  //   • One revolution at the user's RPM rarely lands on a whole frame, which
+  //     would make the loop seam jump. So we round the revolution to a whole
+  //     number of frames and use that exact effective RPM for the render — the
+  //     last frame then perfectly precedes frame 0, giving a seamless loop with
+  //     a speed within ~1% of the slider (imperceptible).
+  const totalFrames = Math.max(1, Math.round(fps * duration));
+  let   segFrames   = totalFrames;
+  let   effRpm      = S.rpm;
+  if (S.rpm > 0) {
+    const framesPerRev = Math.max(1, Math.round(fps * 60 / S.rpm)); // whole frames
+    effRpm   = fps * 60 / framesPerRev;                              // seamless RPM
+    if (framesPerRev < totalFrames) segFrames = framesPerRev;
+  }
 
   S.isRecording = true;
-  btnRecord.style.display   = "none";
-  btnStop.style.display     = "flex";
+  btnRecord.style.display = "none";
+  btnStop.style.display   = "flex";
   progressWrap.classList.add("visible");
-  progressTrack.classList.remove("indeterminate");
+  progressTrack.classList.add("indeterminate");
   progressFill.style.width  = "0%";
-  progressLabel.textContent = "Uploading\u2026 0%";
-  setStatus("recording", "Uploading\u2026");
+  progressLabel.textContent = "Loading engine\u2026";
+  setStatus("recording", "Loading render engine\u2026");
 
-  const t0 = performance.now();
-  let renderTimer = null;
+  const t0       = performance.now();
+  let   cancelled = false;
+  let   phase     = "seg";
+  exportAbort = { abort: () => {
+    cancelled = true;
+    try { if (ffmpegInstance) ffmpegInstance.terminate(); } catch (_) {}
+    ffmpegInstance = null; ffmpegLoading = null;
+  }};
 
   try {
-    const blob = await new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      // Allow the Stop button to cancel the in-flight request.
-      exportAbort = { abort: () => xhr.abort() };
-
-      // Real upload progress (the audio file is the heavy part).
-      xhr.upload.onprogress = (ev) => {
-        if (!ev.lengthComputable) return;
-        const pct = Math.round((ev.loaded / ev.total) * 100);
-        progressFill.style.width  = pct + "%";
-        progressLabel.textContent = "Uploading\u2026 " + pct + "%";
-      };
-
-      // Upload finished → server is now rendering. Switch to an animated
-      // indeterminate bar with a live elapsed timer so the user sees motion.
-      xhr.upload.onload = () => {
-        progressTrack.classList.add("indeterminate");
-        setStatus("recording", "Rendering MP4 on server\u2026");
-        renderTimer = setInterval(() => {
-          const secs = ((performance.now() - t0) / 1000).toFixed(0);
-          progressLabel.textContent = "Rendering on server\u2026 " + secs + "s";
-        }, 200);
-      };
-
-      xhr.responseType = "blob";
-      xhr.open("POST", "/export");
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          resolve(xhr.response);
-        } else {
-          // Try to read an error message out of the JSON error body.
-          const fr = new FileReader();
-          fr.onload = () => {
-            let detail = "";
-            try { detail = JSON.parse(fr.result).error || ""; } catch (_) {}
-            reject(new Error(detail || ("server " + xhr.status)));
-          };
-          fr.onerror = () => reject(new Error("server " + xhr.status));
-          fr.readAsText(xhr.response);
-        }
-      };
-      xhr.onerror  = () => reject(new Error("network error"));
-      xhr.onabort  = () => { const e = new Error("aborted"); e.name = "AbortError"; reject(e); };
-      xhr.send(form);
+    const ff = await getFFmpeg(() => {
+      progressLabel.textContent = "Downloading engine (first time only)\u2026";
     });
-    if (renderTimer) clearInterval(renderTimer);
+    if (cancelled) throw Object.assign(new Error("aborted"), { name: "AbortError" });
+
+    // Progress feedback. ffmpeg can't reliably estimate the rotation render
+    // (a single looped still image), so that phase shows an animated "working"
+    // bar with no fake percentage. The audio/loop pass reports a trustworthy
+    // 0–1 fraction, so that phase shows a real 0 → 100% bar.
+    ff.on("progress", ({ progress }) => {
+      if (phase === "seg") {
+        progressLabel.textContent = "Rendering in progress\u2026";
+        return; // keep the indeterminate animation running
+      }
+      const pct = Math.min(99, Math.round(Math.max(0, Math.min(1, progress || 0)) * 100));
+      progressLabel.textContent = (hasAudio ? "Adding sound\u2026 " : "Finalising\u2026 ") + pct + "%";
+      progressFill.style.width = pct + "%";
+    });
+
+    // Build and write the input images.
+    const art   = exportArtCanvas(W, H);
+    const artD  = art.width;
+    const rot   = Math.ceil(artD * 1.4143);
+    await ff.writeFile("art.png",   await canvasBytes(art));
+    await ff.writeFile("frame.png", await canvasBytes(exportFrameCanvas(W, H)));
+    let fgIdx = null;
+    if (S.fgImage) { await ff.writeFile("fg.png", await canvasBytes(exportFgCanvas(W, H))); fgIdx = 2; }
+    if (hasAudio)  { await ff.writeFile("audio_in", new Uint8Array(await audioFileRef.arrayBuffer())); }
+    if (cancelled) throw Object.assign(new Error("aborted"), { name: "AbortError" });
+
+    // Rotation render: unknown duration → animated "working" bar, no fake %.
+    progressTrack.classList.add("indeterminate");
+    progressLabel.textContent = "Rendering in progress\u2026";
+    setStatus("recording", "Rendering on your device\u2026");
+
+    // Filter chain: rotate ONLY the artwork, composite on black, overlay the
+    // static frame (clean edge), optional foreground.
+    let chain =
+      `color=c=black:s=${W}x${H}:r=${fps}[base];` +
+      `[0:v]format=rgba,rotate=2*PI*${effRpm}*t/60:ow=${rot}:oh=${rot}:c=none[art];` +
+      `[base][art]overlay=(W-w)/2:(H-h)/2:format=auto[t1];` +
+      `[t1][1:v]overlay=0:0[v1]`;
+    let last = "[v1]";
+    if (fgIdx !== null) { chain += `;[v1][${fgIdx}:v]overlay=0:0[v2]`; last = "[v2]"; }
+
+    const segCmd = ["-y", "-loop", "1", "-i", "art.png", "-loop", "1", "-i", "frame.png"];
+    if (fgIdx !== null) segCmd.push("-loop", "1", "-i", "fg.png");
+    segCmd.push(
+      "-filter_complex", chain, "-map", last,
+      "-frames:v", String(segFrames), "-r", String(fps),
+      "-c:v", "libx264", "-pix_fmt", "yuv420p",
+      "-preset", "veryfast", "-crf", "20", "-g", String(segFrames),
+      "seg.mp4"
+    );
+    await ff.exec(segCmd);
+    if (cancelled) throw Object.assign(new Error("aborted"), { name: "AbortError" });
+
+    // Loop the segment (no re-encode) to the full duration + mux audio.
+    // This pass reports reliable progress → switch to a real 0 → 100% bar.
+    phase = "mux";
     progressTrack.classList.remove("indeterminate");
-    finishExport(blob, performance.now() - t0);
+    progressFill.style.width  = "0%";
+    progressLabel.textContent = hasAudio ? "Adding sound\u2026 0%" : "Finalising\u2026 0%";
+    setStatus("recording", hasAudio ? "Adding sound\u2026" : "Finalising\u2026");
+
+    const loopCmd = ["-y", "-stream_loop", "-1", "-i", "seg.mp4"];
+    if (hasAudio) loopCmd.push("-ss", String(audioStart), "-i", "audio_in");
+    loopCmd.push("-map", "0:v", "-t", String(duration), "-c:v", "copy");
+    if (hasAudio) loopCmd.push("-map", "1:a", "-c:a", "aac", "-b:a", "192k", "-shortest");
+    loopCmd.push("-movflags", "+faststart", "out.mp4");
+    await ff.exec(loopCmd);
+    if (cancelled) throw Object.assign(new Error("aborted"), { name: "AbortError" });
+
+    const data = await ff.readFile("out.mp4");
+    const blob = new Blob([data.buffer], { type: "video/mp4" });
+
+    // Clean the in-memory filesystem for the next run.
+    for (const f of ["art.png", "frame.png", "fg.png", "audio_in", "seg.mp4", "out.mp4"]) {
+      try { await ff.deleteFile(f); } catch (_) {}
+    }
+
+    progressTrack.classList.remove("indeterminate");
+    finishExport(blob, performance.now() - t0, "mp4");
   } catch (e) {
-    if (renderTimer) clearInterval(renderTimer);
     progressTrack.classList.remove("indeterminate");
-    if (e.name === "AbortError") {
+    if (e && e.name === "AbortError") {
       setStatus("", "Cancelled.");
       progressWrap.classList.remove("visible");
     } else {
-      showToast("Export failed: " + e.message);
-      setStatus("", "Export error \u2014 try again.");
       console.error(e);
+      showToast("Export failed: " + (e && e.message ? e.message : "unknown error"));
+      setStatus("", "Export error \u2014 try again.");
     }
   } finally {
     exportAbort = null;
@@ -1180,26 +1371,27 @@ function resetRecUI() {
   btnRecord.disabled      = false;
 }
 
-// Stop button: abort the in-flight server request.
+// Stop button: cancel the in-flight in-browser render.
 function stopRecording() {
   if (!S.isRecording) return;
   if (exportAbort) exportAbort.abort();
   setStatus("", "Cancelling\u2026");
 }
 
-function finishExport(blob, elapsedMs) {
+function finishExport(blob, elapsedMs, ext) {
+  ext = ext || "mp4";
   lastBlob = blob;
   if (lastBlobUrl) URL.revokeObjectURL(lastBlobUrl);
   lastBlobUrl = URL.createObjectURL(blob);
 
   const sizeKB  = Math.round(blob.size / 1024);
   const sizeStr = sizeKB > 1024 ? (sizeKB / 1024).toFixed(1) + " MB" : sizeKB + " KB";
-  const fname   = "storytellers-" + S.ratio.replace(":", "x") + "-" + evenUp(S.canvasW) + "x" + evenUp(S.canvasH) + ".mp4";
+  const fname   = "storytellers-" + S.ratio.replace(":", "x") + "-" + evenUp(S.canvasW) + "x" + evenUp(S.canvasH) + "." + ext;
 
   btnDownload.href          = lastBlobUrl;
   btnDownload.download      = fname;
   btnDownload.style.display = "flex";
-  btnDownload.innerHTML     = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download MP4`;
+  btnDownload.innerHTML     = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download ` + ext.toUpperCase();
 
   const secs = (elapsedMs / 1000).toFixed(1);
   progressFill.style.width  = "100%";
