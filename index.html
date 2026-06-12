@@ -1300,13 +1300,28 @@ async function startRecording() {
     progressLabel.textContent = "Rendering in progress\u2026";
     setStatus("recording", "Rendering on your device\u2026");
 
-    // Filter chain: rotate ONLY the artwork, composite on black, overlay the
-    // static frame (clean edge), optional foreground.
+    // Filter chain: rotate ONLY the artwork, composite on black, apply motion
+    // blur to the spinning disc, THEN overlay the static frame (clean edge) and
+    // optional foreground. Motion blur = render the spin at SUB× fps and average
+    // every SUB sub-frames (tmix) back down to fps → fluid, non-strobing motion,
+    // matching the old server-side `tmix` look. The static frame/fg are overlaid
+    // AFTER the blur so the circular edge stays razor-sharp.
+    //
+    // SUB is adaptive: render cost ∝ segFrames × SUB. At low RPM one revolution
+    // is many frames, so a fixed 4× would be very slow in wasm (and the tiny
+    // per-frame step barely benefits from blur). We therefore pick the largest
+    // SUB (≤4) that keeps the total rendered sub-frames within MAX_SUBFRAMES —
+    // full 4× blur at normal RPM (cheap, where it matters most), tapering to 1×
+    // (no blur) only for very slow spins where it wouldn't help anyway.
+    const MAX_SUBFRAMES = 720;
+    const SUB   = S.rpm > 0 ? Math.max(1, Math.min(4, Math.floor(MAX_SUBFRAMES / segFrames))) : 1;
+    const hiFps = fps * SUB;    // high render rate that gets blurred down to fps
     let chain =
-      `color=c=black:s=${W}x${H}:r=${fps}[base];` +
-      `[0:v]format=rgba,rotate=2*PI*${effRpm}*t/60:ow=${rot}:oh=${rot}:c=none[art];` +
-      `[base][art]overlay=(W-w)/2:(H-h)/2:format=auto[t1];` +
-      `[t1][1:v]overlay=0:0[v1]`;
+      `color=c=black:s=${W}x${H}:r=${hiFps}[base];` +
+      `[0:v]format=rgba,fps=${hiFps},rotate=2*PI*${effRpm}*t/60:ow=${rot}:oh=${rot}:c=none[art];` +
+      `[base][art]overlay=(W-w)/2:(H-h)/2:format=auto[spun];` +
+      `[spun]tmix=frames=${SUB},fps=${fps}[blur];` +
+      `[blur][1:v]overlay=0:0[v1]`;
     let last = "[v1]";
     if (fgIdx !== null) { chain += `;[v1][${fgIdx}:v]overlay=0:0[v2]`; last = "[v2]"; }
 
