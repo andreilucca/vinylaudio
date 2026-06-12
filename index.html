@@ -364,8 +364,8 @@
       <!-- Waveform timeline (appears after audio load) -->
       <div class="waveform-wrap" id="waveformWrap">
         <div class="waveform-header">
-          <span class="waveform-hint">Drag handles to trim selection</span>
-          <span class="waveform-time" id="waveformTime">0:00 – 0:00</span>
+          <span class="waveform-hint">Full song — entire track will be used</span>
+          <span class="waveform-time" id="waveformTime">0:00</span>
         </div>
         <div class="waveform-canvas-wrap" id="waveformWrap2">
           <canvas id="waveformCanvas" height="56"></canvas>
@@ -443,7 +443,6 @@
           <button data-sec="15">15s</button>
           <button data-sec="30" class="active">30s</button>
           <button data-sec="60">1m</button>
-          <button data-sec="120">2m</button>
         </div>
       </div>
 
@@ -838,14 +837,12 @@ async function decodeAndDrawWaveform(arrayBuffer) {
     waveformPeaks = peaks;
     waveformWrap.classList.add("visible");
     drawWaveform();
-    setupWaveformDrag();
   } catch (err) {
     console.warn("Waveform decode failed:", err);
     // Show waveform UI anyway with empty peaks
     waveformPeaks = new Array(500).fill(0.3);
     waveformWrap.classList.add("visible");
     drawWaveform();
-    setupWaveformDrag();
   }
 }
 
@@ -863,49 +860,22 @@ function drawWaveform() {
   const cx   = W / bins;
   const maxH = H * 0.85;
 
-  // Selection region background
-  const sx = S.trimStart * W;
-  const ex = S.trimEnd   * W;
-  wCtx.fillStyle = "rgba(29,185,84,0.12)";
-  wCtx.fillRect(sx, 0, ex - sx, H);
-
-  // Waveform bars
+  // Full track is always used — render every bar as active (no trim handles)
   for (let i = 0; i < bins; i++) {
-    const xPos   = i * cx;
-    const barH   = Math.max(2, waveformPeaks[i] * maxH);
-    const yPos   = (H - barH) / 2;
-    const inSel  = (i / bins) >= S.trimStart && (i / bins) <= S.trimEnd;
-    wCtx.fillStyle = inSel ? "rgba(29,185,84,0.75)" : "rgba(255,255,255,0.12)";
+    const xPos = i * cx;
+    const barH = Math.max(2, waveformPeaks[i] * maxH);
+    const yPos = (H - barH) / 2;
+    wCtx.fillStyle = "rgba(29,185,84,0.75)";
     wCtx.fillRect(xPos, yPos, Math.max(1, cx - 0.5), barH);
   }
-
-  // Start handle
-  const startX = S.trimStart * W;
-  wCtx.fillStyle   = "#1db954";
-  wCtx.fillRect(startX - 1.5, 0, 3, H);
-  // Handle thumb
-  wCtx.beginPath();
-  wCtx.arc(startX, H / 2, 5, 0, Math.PI * 2);
-  wCtx.fill();
-
-  // End handle
-  const endX = S.trimEnd * W;
-  wCtx.fillStyle = "#1db954";
-  wCtx.fillRect(endX - 1.5, 0, 3, H);
-  wCtx.beginPath();
-  wCtx.arc(endX, H / 2, 5, 0, Math.PI * 2);
-  wCtx.fill();
 
   updateWaveformTime();
 }
 
 function updateWaveformTime() {
   if (!S.audioLoaded) return;
-  const start = S.trimStart * S.audioDuration;
-  const end   = S.trimEnd   * S.audioDuration;
-  const dur   = end - start;
-  waveformTime.textContent = fmt(start) + " – " + fmt(end);
-  trimDuration.textContent = "Duration: " + fmt(dur);
+  waveformTime.textContent = fmt(S.audioDuration);
+  trimDuration.textContent = "Full length: " + fmt(S.audioDuration);
 }
 
 function setupWaveformDrag() {
