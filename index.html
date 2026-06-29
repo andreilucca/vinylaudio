@@ -470,47 +470,47 @@
       <div class="section-label">Format</div>
       <div class="format-grid" id="formatGrid">
 
-        <div class="format-card active" data-ratio="1:1" data-w="720" data-h="720">
+        <div class="format-card active" data-ratio="1:1" data-w="1080" data-h="1080">
           <div class="format-preview">
             <svg width="28" height="28" viewBox="0 0 28 28">
               <rect x="3" y="3" width="22" height="22" rx="2" fill="rgba(29,185,84,0.15)" stroke="var(--accent)" stroke-width="1.5"/>
             </svg>
           </div>
           <div class="format-name">SQUARE</div>
-          <div class="format-ratio">720 × 720</div>
+          <div class="format-ratio">1080 × 1080</div>
           <div class="format-platforms">Instagram<br>Facebook</div>
         </div>
 
-        <div class="format-card" data-ratio="4:5" data-w="720" data-h="900">
+        <div class="format-card" data-ratio="4:5" data-w="1080" data-h="1350">
           <div class="format-preview">
             <svg width="28" height="28" viewBox="0 0 28 28">
               <rect x="6" y="2" width="16" height="24" rx="2" fill="var(--surface3)" stroke="var(--text-dim)" stroke-width="1.5"/>
             </svg>
           </div>
           <div class="format-name">PORTRAIT</div>
-          <div class="format-ratio">720 × 900</div>
+          <div class="format-ratio">1080 × 1350</div>
           <div class="format-platforms">Instagram<br>Feed</div>
         </div>
 
-        <div class="format-card" data-ratio="9:16" data-w="720" data-h="1280">
+        <div class="format-card" data-ratio="9:16" data-w="1080" data-h="1920">
           <div class="format-preview">
             <svg width="28" height="28" viewBox="0 0 28 28">
               <rect x="8" y="1" width="12" height="26" rx="2" fill="var(--surface3)" stroke="var(--text-dim)" stroke-width="1.5"/>
             </svg>
           </div>
           <div class="format-name">STORY</div>
-          <div class="format-ratio">720 × 1280</div>
+          <div class="format-ratio">1080 × 1920</div>
           <div class="format-platforms">TikTok<br>Reels</div>
         </div>
 
-        <div class="format-card" data-ratio="16:9" data-w="1280" data-h="720">
+        <div class="format-card" data-ratio="16:9" data-w="1920" data-h="1080">
           <div class="format-preview">
             <svg width="28" height="28" viewBox="0 0 28 28">
               <rect x="2" y="7" width="24" height="14" rx="2" fill="var(--surface3)" stroke="var(--text-dim)" stroke-width="1.5"/>
             </svg>
           </div>
           <div class="format-name">WIDE</div>
-          <div class="format-ratio">1280 × 720</div>
+          <div class="format-ratio">1920 × 1080</div>
           <div class="format-platforms">YouTube<br>Twitter</div>
         </div>
 
@@ -623,6 +623,7 @@
 
 <footer>
   <div class="footer-note">Renders 100% in your browser · 1080 · MP4 H.264 · any song length · no watermark · no upload</div>
+  <div class="footer-note" style="opacity:.7;margin-top:.25rem">WEB-TEST v2.0 · 2026-06-27 · seam-fix + real 1080p (30fps) · NOT live</div>
   <div class="footer-tip"><strong>Tip:</strong> Square photos give the cleanest disc look.</div>
 </footer>
 
@@ -640,8 +641,8 @@ const S = {
   rpm:            33,
   bgColor:        "#111111",
   ratio:          "1:1",
-  canvasW:        720,
-  canvasH:        720,
+  canvasW:        1080,
+  canvasH:        1080,
   vinylPct:       0.86,
   audioDuration:  0,
   silentDuration: 30,    // seconds used when no audio, or manual override
@@ -708,7 +709,7 @@ const REC_FPS      = 30;
 // Preview canvas is 720-based for speed; the exported MP4 is rendered at
 // 1.5× (1080 base) for a crisp, high-resolution result. Dimensions are
 // forced even (libx264/yuv420p requirement).
-const EXPORT_SCALE = 1.5;
+const EXPORT_SCALE = 1.0;
 const evenUp = (n) => { const v = Math.round(n * EXPORT_SCALE); return v % 2 ? v + 1 : v; };
 let audioFileRef   = null;
 let audioBuffer    = null;   // decoded PCM, muxed into the in-browser recording
@@ -1387,11 +1388,12 @@ async function startRecording() {
     const MAX_SUBFRAMES = 720;
     const SUB   = S.rpm > 0 ? Math.max(1, Math.min(4, Math.floor(MAX_SUBFRAMES / segFrames))) : 1;
     const hiFps = fps * SUB;    // high render rate that gets blurred down to fps
+    const warm  = SUB / hiFps;  // warm-up span (=1/fps): primes tmix so the loop seam has full blur
     let chain =
       `color=c=black:s=${W}x${H}:r=${hiFps}[base];` +
-      `[0:v]format=rgba,fps=${hiFps},rotate=2*PI*${effRpm}*t/60:ow=${rot}:oh=${rot}:c=none[art];` +
+      `[0:v]format=rgba,fps=${hiFps},rotate=2*PI*${effRpm}*(t-${warm})/60:ow=${rot}:oh=${rot}:c=none[art];` +
       `[base][art]overlay=(W-w)/2:(H-h)/2:format=auto[spun];` +
-      `[spun]tmix=frames=${SUB},fps=${fps}[blur];` +
+      `[spun]tmix=frames=${SUB},trim=start_frame=${SUB},setpts=PTS-STARTPTS,fps=${fps}[blur];` +
       `[blur][1:v]overlay=0:0[v1]`;
     let last = "[v1]";
     if (fgIdx !== null) { chain += `;[v1][${fgIdx}:v]overlay=0:0[v2]`; last = "[v2]"; }
