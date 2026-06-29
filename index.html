@@ -1421,7 +1421,7 @@ async function startRecording() {
     const loopCmd = ["-y", "-stream_loop", "-1", "-i", "seg.mp4"];
     if (hasAudio) loopCmd.push("-ss", String(audioStart), "-i", "audio_in");
     loopCmd.push("-map", "0:v", "-t", String(duration), "-c:v", "copy");
-    if (hasAudio) loopCmd.push("-map", "1:a", "-c:a", "aac", "-b:a", "192k", "-shortest");
+    if (hasAudio) loopCmd.push("-map", "1:a", "-c:a", "aac", "-b:a", "256k", "-shortest");
     loopCmd.push("-movflags", "+faststart", "out.mp4");
     await ff.exec(loopCmd);
     if (cancelled) throw Object.assign(new Error("aborted"), { name: "AbortError" });
