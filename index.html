@@ -1155,6 +1155,18 @@ function setupWaveformDrag() {
 
   // Slide the fixed-width window so its start follows the cursor (minus the
   // grab offset), clamped so the window always stays inside the track.
+  let fxSeekLast = 0;
+  function fxLiveSeek(force) {
+    // While previewing, follow the window in real time — no stop/play needed.
+    if (!previewPlaying) return;
+    const now = performance.now();
+    if (!force && now - fxSeekLast < 180) return;   // throttle scrubbing jumps
+    fxSeekLast = now;
+    audioEl.currentTime = S.trimStart * S.audioDuration;
+    clearTimeout(previewTimeout);
+    previewTimeout = setTimeout(stopPreview, (S.trimEnd - S.trimStart) * S.audioDuration * 1000);
+  }
+
   function moveWindow(clientX) {
     const win = S.trimEnd - S.trimStart;
     let start = posFraction(clientX) - grabOffset;
@@ -1162,6 +1174,7 @@ function setupWaveformDrag() {
     S.trimStart = start;
     S.trimEnd   = start + win;
     drawWaveform();
+    fxLiveSeek();
   }
 
   function seekFull(clientX) {
@@ -1209,8 +1222,14 @@ function setupWaveformDrag() {
   };
   document.addEventListener("mousemove",  (e) => onMove(e.clientX));
   document.addEventListener("touchmove",  (e) => onMove(e.touches[0].clientX), { passive: true });
-  document.addEventListener("mouseup",    () => { wfDragging = null; });
-  document.addEventListener("touchend",   () => { wfDragging = null; });
+  document.addEventListener("mouseup",    () => {
+    if (wfDragging === "window") fxLiveSeek(true);
+    wfDragging = null;
+  });
+  document.addEventListener("touchend",   () => {
+    if (wfDragging === "window") fxLiveSeek(true);
+    wfDragging = null;
+  });
 }
 
 // ── AUDIO PREVIEW ──────────────────────────────────────────
