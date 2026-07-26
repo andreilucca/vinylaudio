@@ -361,6 +361,45 @@
        on the first export, then cached by the browser. -->
   <script src="vendor/ffmpeg/ffmpeg.js"></script>
   <script src="vendor/ffmpeg/util.js"></script>
+
+<style id="fx-css">
+  .fx-grid2{display:grid; grid-template-columns:1fr 1fr; gap:6px;}
+  .fx-btn{
+    background:transparent; border:1px solid var(--surface3, #2a2a2e);
+    color:var(--text-dim, #9a9aa2); font:inherit; font-size:0.68rem; letter-spacing:.05em;
+    padding:8px 3px; cursor:pointer; text-transform:uppercase; border-radius:4px;
+  }
+  .fx-btn.on{border-color:var(--accent,#1db954); color:var(--accent,#1db954);}
+  .fx-lbl{
+    font-size:0.66rem; letter-spacing:.10em; text-transform:uppercase;
+    color:var(--text-dim, #9a9aa2); margin:12px 0 6px; display:flex; justify-content:space-between;
+  }
+  .fx-lbl b{color:var(--text, #eaeaea); font-weight:400;}
+  .fx-rst{
+    background:none; border:none; padding:0; color:#55555e; font:inherit;
+    font-size:0.62rem; letter-spacing:.08em; text-transform:uppercase; cursor:pointer;
+  }
+  .fx-rst:hover{color:var(--accent,#1db954);}
+  .fx-row{display:flex; align-items:center; gap:8px;}
+  .fx-row input[type=range]{flex:1;}
+  .fx-swatches{display:flex; gap:4px; height:22px;}
+  .fx-swatches input[type=color]{
+    flex:1; height:22px; padding:0; border:1px solid rgba(255,255,255,.10);
+    border-radius:3px; background:none; cursor:pointer; -webkit-appearance:none; appearance:none;
+  }
+  .fx-swatches input[type=color]::-webkit-color-swatch-wrapper{padding:0;}
+  .fx-swatches input[type=color]::-webkit-color-swatch{border:none; border-radius:3px;}
+  .fx-swatches input[type=color]::-moz-color-swatch{border:none; border-radius:3px;}
+  /* ── Sticky preview layout: the left menu scrolls on its own, the video
+        stays fully visible beside it. Scroll wheel anywhere drives the menu. ── */
+  @media (min-width: 901px){
+    body { height: 100vh; overflow: hidden; }
+    main { min-height: 0; }
+    .panel-left { min-height: 0; }
+    .panel-right { min-height: 0; }
+    canvas#vinylCanvas { max-height: calc(100vh - 210px); max-width: 100%; }
+  }
+</style>
 </head>
 <body>
 
@@ -564,8 +603,8 @@
       <div class="setting-row">
         <span class="setting-label">Speed (RPM)</span>
         <div class="setting-control">
-          <input type="range" id="rpmSlider" min="5" max="120" value="33" step="1">
-          <span class="range-val" id="rpmVal">33</span>
+          <input type="range" id="rpmSlider" min="5" max="120" value="5" step="1">
+          <span class="range-val" id="rpmVal">5</span>
         </div>
       </div>
 
@@ -576,6 +615,57 @@
           <span class="range-val" id="sizeVal">86%</span>
         </div>
       </div>
+    </div>
+
+
+    <!-- Effects (WebGL engine) -->
+    <div class="section">
+      <div class="section-label">Effects</div>
+
+      <div class="fx-grid2">
+        <button class="fx-btn on" id="fxDisc">Disc: on</button>
+        <button class="fx-btn" id="fxBeat">Beat sync: off</button>
+      </div>
+
+      <div class="fx-lbl">Background effect</div>
+      <div class="fx-grid2" id="fxModes">
+        <button class="fx-btn on" data-m="-1" style="grid-column:1/-1">Off</button>
+        <button class="fx-btn" data-m="0">Melt</button>
+        <button class="fx-btn" data-m="2">Vortex</button>
+        <button class="fx-btn" data-m="3">Ripple</button>
+        <button class="fx-btn" data-m="6">Tunnel</button>
+        <button class="fx-btn" data-m="7">Kaleido</button>
+        <button class="fx-btn" data-m="8">Glitch</button>
+        <button class="fx-btn" data-m="10">Droste</button>
+        <button class="fx-btn" data-m="12">Liquid</button>
+        <button class="fx-btn" data-m="1">Palette flow</button>
+        <button class="fx-btn" data-m="4">Bloom</button>
+        <button class="fx-btn" data-m="5">Nebula</button>
+        <button class="fx-btn" data-m="9">Spectrum</button>
+        <button class="fx-btn" data-m="11">Warp</button>
+        <button class="fx-btn" data-m="13">Reactor</button>
+      </div>
+      <div class="fx-grid2" id="fxDirs" style="margin-top:6px">
+        <button class="fx-btn on" data-d="1">&#10227; Forward</button>
+        <button class="fx-btn" data-d="-1">&#10226; Reverse</button>
+      </div>
+
+      <div class="fx-lbl">Effect settings <button class="fx-rst" id="fxRstFx">&#8634; reset</button></div>
+      <div class="fx-lbl" style="margin-top:4px">Speed <b id="fxvSpeed">1</b></div>
+      <div class="fx-row"><input type="range" id="fxSpeed" min="0" max="3" step="0.05" value="1"></div>
+      <div class="fx-lbl">Warp <b id="fxvWarp">0.35</b></div>
+      <div class="fx-row"><input type="range" id="fxWarp" min="0" max="1" step="0.01" value="0.35"></div>
+      <div class="fx-lbl">Streak <b id="fxvStreak">0.65</b></div>
+      <div class="fx-row"><input type="range" id="fxStreak" min="0" max="0.95" step="0.01" value="0.65"></div>
+      <div class="fx-lbl">Swirl <b id="fxvSwirl">0.5</b></div>
+      <div class="fx-row"><input type="range" id="fxSwirl" min="0" max="1" step="0.01" value="0.5"></div>
+      <div class="fx-lbl">Scale <b id="fxvScale">1</b></div>
+      <div class="fx-row"><input type="range" id="fxScale" min="0.3" max="3" step="0.05" value="1"></div>
+      <div class="fx-lbl">Trails <b id="fxvTrail">0</b></div>
+      <div class="fx-row"><input type="range" id="fxTrail" min="0" max="0.95" step="0.01" value="0"></div>
+
+      <div class="fx-lbl">Palette <button class="fx-rst" id="fxRstPal">&#8634; reset</button></div>
+      <div class="fx-swatches" id="fxSwatches"></div>
     </div>
 
     <!-- Record + Download + Email -->
@@ -623,7 +713,7 @@
 
 <footer>
   <div class="footer-note">Renders 100% in your browser · 1080 · MP4 H.264 · any song length · no watermark · no upload</div>
-  <div class="footer-note" style="opacity:.7;margin-top:.25rem">WEB v2.0 · 2026-06-29 · Full HD 1080p · smooth-rotation (seam-fix)</div>
+  <div class="footer-note" style="opacity:.7;margin-top:.25rem">WEB v3.0 · 2026-07-27 · Full HD 1080p · effects engine (WebGL)</div>
   <div class="footer-tip"><strong>Tip:</strong> Square photos give the cleanest disc look.</div>
 </footer>
 
@@ -638,7 +728,7 @@ const S = {
   audioLoaded:    false,
   isRecording:    false,
   angle:          0,
-  rpm:            33,
+  rpm:            5,
   bgColor:        "#111111",
   ratio:          "1:1",
   canvasW:        1080,
@@ -839,15 +929,20 @@ function draw(targetCtx, W, H) {
   targetCtx = targetCtx || ctx;
   W = W || canvas.width;
   H = H || canvas.height;
-  if (!bgSprite || !discSprite) buildSprites();
+  if (window.FX && FX.active()) {
+    FX.render(W, H, S.angle);
+    targetCtx.drawImage(FX.canvas, 0, 0, W, H);
+  } else {
+    if (!bgSprite || !discSprite) buildSprites();
 
-  targetCtx.drawImage(bgSprite, 0, 0);
+    targetCtx.drawImage(bgSprite, 0, 0);
 
-  targetCtx.save();
-  targetCtx.translate(W / 2, H / 2);
-  targetCtx.rotate((S.angle * Math.PI) / 180);
-  targetCtx.drawImage(discSprite, -spriteR, -spriteR, spriteR * 2, spriteR * 2);
-  targetCtx.restore();
+    targetCtx.save();
+    targetCtx.translate(W / 2, H / 2);
+    targetCtx.rotate((S.angle * Math.PI) / 180);
+    targetCtx.drawImage(discSprite, -spriteR, -spriteR, spriteR * 2, spriteR * 2);
+    targetCtx.restore();
+  }
 
   // Foreground image (cover-fit, drawn on top of disc)
   if (S.fgImage) {
@@ -908,6 +1003,7 @@ function loadImg(file) {
     imgZone.classList.add("has-file");
     document.getElementById("imgFilename").textContent = file.name;
     invalidateSprites();
+    if (window.FX) FX.setArtwork(img);
     checkReady();
     startAnim();
   };
@@ -1017,8 +1113,21 @@ function drawWaveform() {
     wCtx.fillRect(ex - 2, 0, 2, H);
   }
 
+  // Playhead — live position marker while the song plays or after a seek
+  if (S.audioLoaded && S.audioDuration > 0 && (!audioEl.paused || audioEl.currentTime > 0)) {
+    const px = Math.min(W - 1, (audioEl.currentTime / S.audioDuration) * W);
+    wCtx.fillStyle = "rgba(234,255,234,0.95)";
+    wCtx.fillRect(px - 1, 0, 2, H);
+  }
+
   updateWaveformTime();
 }
+
+// Smooth playhead: repaint the waveform while audio is playing
+(function fxPlayheadLoop(){
+  if (S.audioLoaded && !audioEl.paused && waveformPeaks.length) drawWaveform();
+  requestAnimationFrame(fxPlayheadLoop);
+})();
 
 function updateWaveformTime() {
   if (!S.audioLoaded) return;
@@ -1055,8 +1164,31 @@ function setupWaveformDrag() {
     drawWaveform();
   }
 
+  function seekFull(clientX) {
+    const fSeek = posFraction(clientX);
+    const tSec  = fSeek * S.audioDuration;
+    audioEl.currentTime = tSec;
+    if (audioEl.paused) {
+      if (window.FX) FX.ensureAudio();
+      audioEl.play();
+      previewPlaying = true;
+      btnPreview.classList.add("playing");
+      btnPreview.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Stop`;
+    }
+    clearTimeout(previewTimeout);
+    previewTimeout = setTimeout(stopPreview, Math.max(0, (S.audioDuration - tSec)) * 1000);
+    drawWaveform();
+  }
+
   function beginDrag(clientX) {
-    if (!S.audioLoaded || !S.manualDuration) return false;
+    if (!S.audioLoaded) return false;
+    if (!S.manualDuration) {
+      // Full-song mode: the waveform is a scrubber — click or drag to jump
+      // anywhere in the track, even on an 8-minute song.
+      wfDragging = "seek";
+      seekFull(clientX);
+      return true;
+    }
     const f   = posFraction(clientX);
     const win = S.trimEnd - S.trimStart;
     // Grab inside the window → keep relative offset; outside → center on cursor.
@@ -1071,7 +1203,10 @@ function setupWaveformDrag() {
     if (beginDrag(e.touches[0].clientX)) e.preventDefault();
   }, { passive: false });
 
-  const onMove = (clientX) => { if (wfDragging === "window") moveWindow(clientX); };
+  const onMove = (clientX) => {
+    if (wfDragging === "window") moveWindow(clientX);
+    else if (wfDragging === "seek") seekFull(clientX);
+  };
   document.addEventListener("mousemove",  (e) => onMove(e.clientX));
   document.addEventListener("touchmove",  (e) => onMove(e.touches[0].clientX), { passive: true });
   document.addEventListener("mouseup",    () => { wfDragging = null; });
@@ -1097,6 +1232,7 @@ function startPreview() {
   const startSec = S.trimStart * S.audioDuration;
   const durSec   = (S.trimEnd - S.trimStart) * S.audioDuration;
   audioEl.currentTime = startSec;
+  if (window.FX) FX.ensureAudio();
   audioEl.play();
 
   previewTimeout = setTimeout(stopPreview, durSec * 1000);
@@ -1127,7 +1263,7 @@ function syncDuration() {
       S.trimStart = 0;
       S.trimEnd   = 1;
     }
-    waveformCanvas.style.cursor = S.manualDuration ? "grab" : "default";
+    waveformCanvas.style.cursor = S.manualDuration ? "grab" : "pointer";
     if (waveformPeaks.length) drawWaveform();
   }
   updateDurationButtons();
@@ -1283,6 +1419,7 @@ function canvasBytes(c) {
 
 async function startRecording() {
   if (S.isRecording || !S.imageLoaded) return;
+  if (window.FX && FX.active()) { FX.liveExport(); return; }
 
   stopPreview();
   btnDownload.style.display = "none";
@@ -1640,6 +1777,873 @@ applyCanvasSize();
 setupWaveformDrag();
 checkReady();
 startAnim();
+
+
+
+// ═══════════════════════════════════════════════════════════
+// FX — WebGL effects engine (backgrounds + beat-reactive disc)
+// Integrates with the existing app: when inactive, the classic
+// sprite pipeline and the fast loop-export run untouched.
+// ═══════════════════════════════════════════════════════════
+window.FX = (function(){
+"use strict";
+
+const glc = document.createElement("canvas");
+const gl = glc.getContext("webgl", {antialias:false});
+if(!gl){ console.warn("FX: WebGL unavailable — effects disabled."); return null; }
+
+const VS = `
+attribute vec2 aPos;
+varying vec2 vUv;
+void main(){ vUv = aPos*0.5+0.5; gl_Position = vec4(aPos,0.,1.); }`;
+
+const FS = `
+precision highp float;
+varying vec2 vUv;
+uniform vec2  uRes;
+uniform float uTime;
+uniform sampler2D uTex;    // artwork (unit 0)
+uniform sampler2D uPrev;   // previous frame (unit 1)
+uniform int   uMode;       // -1 off,0 melt,1 flow,2 vortex,3 ripple,4 bloom,5 nebula,6 tunnel,7 kaleido,8 glitch,9 spectrum,10 droste,11 warp,12 liquid,13 reactor
+uniform float uSpeed, uWarp, uStreak, uSwirl, uScale, uDir, uTrail;
+uniform vec3  uPal[6];
+uniform float uPalN;
+uniform vec3  uBgCol;
+uniform float uDisc, uDiscR, uAngle, uBeat, uBeatBg;
+uniform int   uDiscFx;     // 0 none,1 ripple,2 shatter,3 explode
+uniform float uSpec[32];
+
+float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453123); }
+float noise(vec2 p){
+  vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
+  return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),
+             mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),f.x), f.y);
+}
+float fbm(vec2 p){
+  float v=0.0, a=0.5;
+  for(int i=0;i<5;i++){ v+=a*noise(p); p=p*2.03+vec2(3.1,7.7); a*=0.5; }
+  return v;
+}
+vec2 mirror(vec2 p){ return abs(fract(p*0.5)*2.0-1.0); }
+
+vec3 palette(float t){
+  t = clamp(t,0.0,0.999);
+  float n = max(uPalN,2.0);
+  float f = t*(n-1.0);
+  vec3 col = uPal[0];
+  for(int i=0;i<5;i++){
+    if(float(i) < n-1.0){
+      float k = clamp(f-float(i),0.0,1.0);
+      col = mix(col, uPal[i+1], k);
+    }
+  }
+  return col;
+}
+vec3 grade(vec3 col){
+  col = pow(col, vec3(1.10));
+  float l = dot(col, vec3(0.299,0.587,0.114));
+  return mix(vec3(l), col, 1.22);
+}
+float specAt(float x){
+  float b = clamp(x,0.0,0.999)*32.0;
+  int bi = int(floor(b));
+  float v = 0.0;
+  for(int i=0;i<32;i++){ if(i==bi) v = uSpec[i]; }
+  return v;
+}
+
+vec3 background(vec2 uv, float t, float aspect){
+  float w = uWarp*(1.0 + uBeatBg*1.4);
+  float wx = fbm(vec2(uv.x*3.2*uScale,       uv.y*0.7*uScale + t*0.16)) - 0.5;
+  float wy = fbm(vec2(uv.x*2.1*uScale + 7.3, uv.y*0.45*uScale - t*0.11)) - 0.5;
+  vec3 col = uBgCol;
+
+  if(uMode == 0){
+    vec2 p = uv + vec2(wx,wy)*w*0.8;
+    float anchor = 0.5 + 0.18*sin(t*0.18 + uv.x*3.0) + 0.1*wx;
+    p.y = mix(p.y, anchor, uStreak);
+    p.y += t*0.028;
+    p.x += wx*w*0.5;
+    col = grade(texture2D(uTex, mirror(p)).rgb);
+
+  } else if(uMode == 1){
+    float q = fbm(vec2(uv.x*3.5*uScale,         uv.y*1.1*uScale + t*0.20));
+    float r = fbm(vec2(uv.x*3.5*uScale + q*2.4, uv.y*0.9*uScale - t*0.14) + wx*w*3.0);
+    float g = fbm(vec2(uv.x*2.2*uScale + r*2.0, uv.y*0.42*uScale + t*0.10 + r));
+    float m = clamp(g*1.55 - 0.22, 0.0, 1.0);
+    float m2 = fbm(vec2(uv.x*4.0*uScale + wx*w*4.0, mix(uv.y,0.5,uStreak)*uScale + t*0.05));
+    m = mix(m, m2, uStreak*0.6);
+    col = palette(m);
+    col *= 0.55 + 0.7*m;
+
+  } else if(uMode == 2){
+    vec2 c = uv - 0.5; c.x *= aspect;
+    float r = length(c);
+    vec2 dirv = r > 1e-4 ? c/r : vec2(1.0,0.0);
+    float wob = fbm(dirv*(1.2 + r*3.0)*uScale + vec2(t*0.12, -t*0.09)) - 0.5;
+    float a = atan(c.y, c.x)
+            + uDir*( t*0.30 + uSwirl*4.5*exp(-r*2.2) )
+            + wob*w*2.2;
+    vec2 p = vec2(cos(a), sin(a))*r; p.x /= aspect; p += 0.5;
+    float d = 0.006 + 0.02*uStreak;
+    vec2 p2 = vec2(cos(a+d*uDir), sin(a+d*uDir))*r; p2.x /= aspect; p2 += 0.5;
+    col = grade( (texture2D(uTex, mirror(p)).rgb + texture2D(uTex, mirror(p2)).rgb)*0.5 );
+
+  } else if(uMode == 3){
+    vec2 c = uv - 0.5; c.x *= aspect;
+    float r = length(c);
+    vec2 dirv = r > 1e-4 ? c/r : vec2(1.0,0.0);
+    float env  = 0.5 + 0.5*fbm(dirv*1.8*uScale + vec2(r*4.0*uScale - t*0.25, 0.0));
+    float wave = sin(r*(14.0+10.0*uScale) - t*1.8) * env;
+    float r2 = r + wave*0.055*(0.3+w);
+    float a2 = atan(c.y, c.x) + uDir*t*0.06 + wave*0.35*uSwirl;
+    vec2 p = vec2(cos(a2), sin(a2))*r2; p.x /= aspect; p += 0.5;
+    col = grade(texture2D(uTex, mirror(p)).rgb);
+    col *= 0.88 + 0.24*smoothstep(0.35, 1.0, wave);
+
+  } else if(uMode == 4){
+    vec2 p = uv; p.x *= aspect;
+    p += vec2(wx,wy)*w*0.25;
+    vec3 acc = vec3(0.0); float wsum = 0.0;
+    for(int i=0;i<6;i++){
+      if(float(i) >= uPalN) break;
+      float fi = float(i);
+      vec2 ctr = vec2(0.5*aspect, 0.5) + vec2(
+        sin(t*uDir*(0.10+0.017*fi) + fi*2.399) * (0.30*aspect),
+        cos(t*(0.08+0.013*fi) + fi*1.618)      *  0.30 );
+      float rad = (0.16 + 0.05*sin(t*0.23+fi)) * (2.0-uScale);
+      float d2 = dot(p-ctr, p-ctr);
+      float k = exp(-d2/(rad*rad));
+      acc += uPal[i]*k; wsum += k;
+    }
+    vec3 ink = acc/max(wsum, 1e-4);
+    float body = 1.0 - exp(-wsum*(1.2+uSwirl*2.0));
+    col = ink*body + vec3(0.03)*(1.0-body);
+
+  } else if(uMode == 5){
+    vec2 p = uv; p.x *= aspect;
+    float n1 = fbm(p*1.8*uScale + vec2( t*0.050*uDir, -t*0.030));
+    float n2 = fbm(p*3.2*uScale + vec2(-t*0.032*uDir,  t*0.040) + n1*w*2.4);
+    float n3 = fbm(p*5.5*uScale + vec2( t*0.020*uDir,  t*0.055) + n2*1.5);
+    vec3 c1 = palette(clamp(n1*1.30,      0.0,1.0));
+    vec3 c2 = palette(clamp(n2*1.40-0.10, 0.0,1.0));
+    vec3 c3 = palette(clamp(n3*1.50-0.20, 0.0,1.0));
+    col = c1*0.40 + c2*(0.30+0.45*n2) + c3*(0.20+0.35*n3)*uSwirl*2.0;
+    col *= 0.45 + 0.65*n2;
+
+  } else if(uMode == 6){
+    // Tunnel — infinite fly-through built from the artwork (seam-free)
+    vec2 c = uv - 0.5; c.x *= aspect;
+    float r = length(c) + 1e-4;
+    float a = atan(c.y, c.x);
+    vec2 dirv = c/r;
+    float z   = 0.22/r + t*0.8*uDir;
+    float rep = 2.0*(1.0 + floor(uScale));               // even integer -> wrap lands on mirror period
+    float ang = (a/6.28318 + 0.5)*rep + t*0.05*uDir*uSwirl*4.0;
+    vec2 p = vec2(ang, z*0.30);
+    p += (vec2(fbm(dirv*2.0 + vec2(z*0.30, 0.0)),
+               fbm(dirv*2.0 + vec2(0.0, z*0.30) + 9.1)) - 0.5)*w*0.5;
+    col = grade(texture2D(uTex, mirror(p)).rgb);
+    col *= smoothstep(0.0, 0.30, r);          // deep dark core
+
+  } else if(uMode == 7){
+    // Kaleido — mirrored segments of the artwork, slowly rotating
+    vec2 c = uv - 0.5; c.x *= aspect;
+    float r = length(c);
+    float a = atan(c.y, c.x) + t*0.15*uDir;
+    float seg = 6.0 + floor(uScale*4.0);
+    float sa = 6.28318/seg;
+    a = mod(a, sa); a = abs(a - sa*0.5);
+    vec2 p = vec2(cos(a), sin(a))*r*(1.1 + uSwirl*0.8);
+    p += (vec2(fbm(p*2.0 + t*0.10), fbm(p*2.0 - t*0.08))-0.5)*w*0.5;
+    p += 0.5;
+    col = grade(texture2D(uTex, mirror(p)).rgb);
+
+  } else if(uMode == 8){
+    // Glitch — Berlin cut: row shifts, block jumps, chromatic split, scanlines
+    vec2 p = uv;
+    float gseed = floor(uTime*6.0);
+    float row = floor(p.y*(24.0 + uScale*40.0));
+    float g1 = hash(vec2(row, gseed));
+    p.x += (g1-0.5)*w*0.35*step(0.74, g1);
+    vec2 cell = floor(p*vec2(8.0,6.0) + gseed);
+    float cb = hash(cell + gseed*0.37);
+    if(cb > 0.93) p += (vec2(hash(cell+1.7), hash(cell+3.1))-0.5)*0.12*0.5;
+    float ca = 0.004 + 0.014*uStreak;
+    col.r = texture2D(uTex, mirror(p + vec2(ca,0.0))).r;
+    col.g = texture2D(uTex, mirror(p)).g;
+    col.b = texture2D(uTex, mirror(p - vec2(ca,0.0))).b;
+    col = grade(col);
+    col *= 0.92 + 0.08*sin(uv.y*uRes.y*3.14159);
+
+  } else if(uMode == 9){
+    // Spectrum — radial equalizer in palette colors, echo-friendly
+    vec2 c = uv - 0.5; c.x *= aspect;
+    float r = length(c);
+    float a = atan(c.y, c.x)*uDir + t*0.10;
+    float x = fract(a/6.28318 + 0.5);
+    float sv = specAt(x)*(0.35 + uSwirl*0.9);
+    float r0 = 0.14 + uScale*0.06;
+    float top = r0 + sv*0.34;
+    float bar = smoothstep(top+0.006, top-0.006, r) * smoothstep(r0-0.010, r0+0.004, r);
+    col = palette(clamp(sv*1.4,0.0,1.0))*bar*(0.7 + 0.8*sv);
+    col += palette(uBeat)*exp(-r*7.0)*uBeat*0.9;             // kick flash in the core
+    float n = fbm(c*3.0*uScale + t*0.08);
+    col += palette(n)*0.07;                                   // faint nebula floor
+  }
+
+  if(uMode == 10){
+    // Droste — infinite spiralling zoom into the artwork (seam-free:
+    // both wrap jumps equal exactly one mirror period of 2.0, and the
+    // jitter noise is fed continuous screen coords, never wrapped ones)
+    vec2 c = uv - 0.5; c.x *= aspect;
+    float r = max(length(c), 1e-4);
+    float a2 = atan(c.y, c.x);
+    float k = log(2.0 + uScale);
+    float lr = log(r)/k;
+    vec2 p = vec2( (a2/6.28318)*2.0 + lr*uSwirl,
+                   fract(lr + t*0.12*uDir)*2.0 );
+    vec2 jit = (vec2(fbm(c*3.0 + t*0.05), fbm(c*3.0 + 7.7)) - 0.5)*w*0.3;
+    col = grade(texture2D(uTex, mirror(p + jit)).rgb);
+    col *= smoothstep(0.0, 0.12, r);
+
+  } else if(uMode == 11){
+    // Warp — hyperspace star streaks in the palette colors
+    vec2 c = uv - 0.5; c.x *= aspect;
+    float r = length(c) + 1e-4;
+    float a2 = atan(c.y, c.x);
+    vec3 stars = vec3(0.0);
+    for(int i=0;i<3;i++){
+      float fi = float(i);
+      float rays = 90.0 + fi*70.0;
+      float idx = floor((a2/6.28318 + 0.5)*rays);
+      float h = hash(vec2(idx, fi*13.7 + 3.3));
+      float sp = 0.25 + h*0.55 + fi*0.15;
+      float d = fract(h*7.13 + t*sp*0.5*uDir);
+      float starR = d*d*0.95;
+      float len = 0.004 + 0.055*uStreak*(1.0-d);
+      float b2 = smoothstep(len, 0.0, abs(r - starR)) * smoothstep(1.0, 0.6, d) * step(0.30, h);
+      stars += palette(fract(h*3.1)) * b2 * (0.8 + fi*0.3);
+    }
+    float n = fbm(c*(2.0*uScale) + t*0.05);
+    col = stars + palette(n)*0.07;
+    col += palette(0.8)*exp(-r*9.0)*0.35*uSwirl;             // warp core glow
+
+  } else if(uMode == 12){
+    // Liquid — the artwork as molten metal with moving light
+    float sc = 3.0*uScale;
+    vec2 wp = uv + (vec2(fbm(uv*sc + vec2(t*0.12, 0.0)),
+                         fbm(uv*sc + vec2(0.0, t*0.10) + 5.1))-0.5)*w*1.2;
+    vec3 base = grade(texture2D(uTex, mirror(wp)).rgb);
+    float n0 = fbm(uv*sc + t*0.10);
+    float e = 0.012;
+    float nx = fbm((uv+vec2(e,0.0))*sc + t*0.10) - n0;
+    float ny = fbm((uv+vec2(0.0,e))*sc + t*0.10) - n0;
+    vec3 nor = normalize(vec3(-nx/e, -ny/e, 2.2));
+    vec3 L = normalize(vec3(cos(t*0.20)*0.6, 0.7, 0.55));
+    float diff = max(dot(nor, L), 0.0);
+    float spec = pow(max(dot(reflect(-L, nor), vec3(0.0,0.0,1.0)), 0.0), 28.0);
+    col = base*(0.42 + 0.72*diff) + vec3(1.0,0.98,0.92)*spec*0.85;
+  }
+
+  if(uMode == 13){
+    // Reactor — chain reaction: energy flows outward along spiral arms that
+    // twist like a vortex, with bright nodes chasing each other down the chain.
+    // Every angular term uses integer harmonics or cos/sin pairs, so the
+    // pattern is seamless all the way around.
+    vec2 c = uv - 0.5; c.x *= aspect;
+    float r = length(c) + 1e-4;
+    float a2 = atan(c.y, c.x);
+    float twist = 2.5 + uSwirl*5.0;
+    float sp = a2 + log(r)*twist + t*uDir*1.1;           // spiral coordinate
+    sp += (fbm(c*3.0*uScale + t*0.10) - 0.5)*w*2.0;      // organic wobble
+    vec2 spv = vec2(cos(sp), sin(sp));
+    float arms  = cos(sp*3.0)*0.5 + 0.5;                 // 3 spiral arms
+    float pulse = fbm(spv*1.5 + vec2(r*5.0*uScale - t*0.9, 0.0));
+    float energy = smoothstep(0.15, 1.0, arms)*(0.35 + 0.85*pulse);
+    // chain-reaction nodes racing outward along the arms
+    float chain = pow(max(0.0, cos(sp*3.0)*0.5 + 0.5), 8.0)
+                * pow(max(0.0, sin(r*(14.0 + 10.0*uStreak) - t*3.2)*0.5 + 0.5), 6.0);
+    col = palette(clamp(energy, 0.0, 1.0))*(0.22 + energy*0.95)
+        + palette(0.92)*chain*1.3
+        + palette(0.85)*exp(-r*10.0)*0.30;               // reactor core glow
+  }
+
+  col *= 1.0 + uBeatBg*0.25;   // background pulses only when the beat is routed to it
+
+  vec2 dd = uv - 0.5;
+  col *= 1.0 - dot(dd,dd)*0.50;
+  return col;
+}
+
+void main(){
+  float aspect = uRes.x/uRes.y;
+  float t = uTime*uSpeed;
+  vec3 col = background(vUv, t, aspect);
+
+  if(uDisc > 0.5){
+    float kick = uBeat;                                      // beat sync ON + disc ON -> the disc explodes on the kick
+    vec2 q = (gl_FragCoord.xy - 0.5*uRes)/min(uRes.x, uRes.y);
+    float r = length(q);
+    float R = uDiscR*(1.0 + kick*0.06);                      // size punch on the kick
+
+    float sh = smoothstep(R*1.30, R*0.92, length(q - vec2(0.0,-0.018)));
+    col = mix(col, col*0.30, sh*0.75);
+
+    if(r < R + 0.006){
+      vec2 dLoc = q/R;
+      float rr0 = length(dLoc);
+
+      if(uDiscFx == 1){
+        // 3D boom: the disc pumps like a subwoofer membrane on the kick
+        float dome = kick*0.30;
+        float rrS = rr0*(1.0 - dome*(1.0 - rr0*rr0));
+        if(rr0 > 1e-4) dLoc *= rrS/rr0;
+      }
+
+      float ca2 = cos(-uAngle), sa2 = sin(-uAngle);
+      vec2 rot = vec2(dLoc.x*ca2 - dLoc.y*sa2, dLoc.x*sa2 + dLoc.y*ca2);
+      vec3 art;
+
+      if(uDiscFx == 1){
+        // Explode — one continuous 3D blast: the image bulges outward and
+        // splits chromatically on the kick. No cells, no rings — the spatial
+        // variation is smooth noise, so the artwork never shows cut lines.
+        float rr = length(rot);
+        vec2 dirn = rr > 1e-4 ? rot/rr : vec2(1.0,0.0);
+        float vary = fbm(dirn*2.5 + rr*2.0);
+        float push = kick*(0.12 + 0.35*vary);
+        vec2 rp = rot*(1.0 - push*0.5);
+        float sp = 0.035*kick;
+        art.r = texture2D(uTex, clamp(rp*(1.0+sp)*0.5+0.5, 0.0, 1.0)).r;
+        art.g = texture2D(uTex, clamp(rp*0.5+0.5,          0.0, 1.0)).g;
+        art.b = texture2D(uTex, clamp(rp*(1.0-sp)*0.5+0.5, 0.0, 1.0)).b;
+        // pumped lighting: centre flash + one light ring racing outward
+        art *= 1.0 + kick*0.35*(1.0 - rr0);
+        art += vec3(1.0,0.95,0.85) * pow(max(0.0, 1.0 - abs(rr0 - (0.3+0.6*kick))*5.0), 6.0) * kick*0.45;
+      } else {
+        art = texture2D(uTex, clamp(rot*0.5+0.5, 0.0, 1.0)).rgb;
+      }
+
+      float hole = smoothstep(R*0.032, R*0.024, r);
+      art = mix(art, vec3(0.045), hole);
+      float ring = smoothstep(0.0045, 0.0, abs(r - R + 0.003));
+      art += ring*(0.12 + 0.50*kick);
+
+      float aa2 = smoothstep(R + 0.0025, R - 0.0025, r);
+      col = mix(col, art, aa2);
+    }
+  }
+
+  // trails: previous frame slightly zoomed + rotated, decaying — visualizer echo
+  if(uTrail > 0.001){
+    vec2 pz = vUv - 0.5;
+    float rot = 0.004*uDir;
+    pz = mat2(cos(rot),-sin(rot),sin(rot),cos(rot)) * pz * 0.988;
+    vec3 prev = texture2D(uPrev, pz + 0.5).rgb;
+    col = max(col, prev*uTrail);
+  }
+
+  // fine dither: breaks up 8-bit banding in dark gradients without visible noise
+  col += (hash(gl_FragCoord.xy + fract(uTime)*vec2(17.0,29.0)) - 0.5) / 255.0;
+
+  gl_FragColor = vec4(col, 1.0);
+}`;
+
+const FS_COPY = `
+precision mediump float;
+varying vec2 vUv;
+uniform sampler2D uScene;
+void main(){ gl_FragColor = vec4(texture2D(uScene, vUv).rgb, 1.0); }`;
+
+function compile(type, src){
+  const sh = gl.createShader(type);
+  gl.shaderSource(sh, src); gl.compileShader(sh);
+  if(!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
+  return sh;
+}
+function makeProg(fs){
+  const p = gl.createProgram();
+  gl.attachShader(p, compile(gl.VERTEX_SHADER, VS));
+  gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(p);
+  if(!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  return p;
+}
+const progMain = makeProg(FS);
+const progCopy = makeProg(FS_COPY);
+
+const quad = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+function bindQuad(prog){
+  const a = gl.getAttribLocation(prog, "aPos");
+  gl.enableVertexAttribArray(a);
+  gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0);
+}
+
+const U = {};
+gl.useProgram(progMain);
+["uRes","uTime","uTex","uPrev","uMode","uSpeed","uWarp","uStreak","uSwirl","uScale","uDir","uTrail",
+ "uPal","uPalN","uBgCol","uDisc","uDiscR","uAngle","uBeat","uBeatBg","uDiscFx","uSpec"]
+  .forEach(n => U[n] = gl.getUniformLocation(progMain, n) || gl.getUniformLocation(progMain, n + "[0]"));
+const UCopy = gl.getUniformLocation(progCopy, "uScene");
+
+// ── ping-pong framebuffers (trails), half-float when supported ──
+const extHF   = gl.getExtension("OES_texture_half_float");
+gl.getExtension("OES_texture_half_float_linear");
+const extCBHF = gl.getExtension("EXT_color_buffer_half_float");
+let fboType = (extHF && extCBHF) ? extHF.HALF_FLOAT_OES : gl.UNSIGNED_BYTE;
+let fbo=[null,null], fboTex=[null,null], fboW=0, fboH=0, cur=0;
+function makeFbos(w,h){
+  for(let i=0;i<2;i++){
+    if(fboTex[i]) gl.deleteTexture(fboTex[i]);
+    if(fbo[i]) gl.deleteFramebuffer(fbo[i]);
+    fboTex[i] = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, fboTex[i]);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, fboType, null);
+    fbo[i] = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo[i]);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, fboTex[i], 0);
+    if(gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE && fboType !== gl.UNSIGNED_BYTE){
+      fboType = gl.UNSIGNED_BYTE;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      makeFbos(w,h);
+      return;
+    }
+    gl.clearColor(0,0,0,1); gl.clear(gl.COLOR_BUFFER_BIT);
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  fboW=w; fboH=h;
+}
+
+// ── artwork texture: 2048px, mipmaps, anisotropic ──
+const tex = gl.createTexture();
+const extAniso = gl.getExtension("EXT_texture_filter_anisotropic")
+              || gl.getExtension("WEBKIT_EXT_texture_filter_anisotropic");
+gl.bindTexture(gl.TEXTURE_2D, tex);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+if(extAniso){
+  gl.texParameterf(gl.TEXTURE_2D, extAniso.TEXTURE_MAX_ANISOTROPY_EXT,
+    gl.getParameter(extAniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT));
+}
+function setArtwork(img){
+  const size = 2048;
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  const cx = c.getContext("2d");
+  cx.imageSmoothingEnabled = true;
+  cx.imageSmoothingQuality = "high";
+  const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+  const sc = Math.max(size/iw, size/ih);
+  cx.drawImage(img, (size-iw*sc)/2, (size-ih*sc)/2, iw*sc, ih*sc);
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, c);
+  gl.generateMipmap(gl.TEXTURE_2D);
+  applyPalette(extractPalette(img, 5));
+}
+
+// ── palette: k-means extraction, editable, resettable ──
+let currentPal = [], basePal = [];
+function hex(c){ return "#" + c.map(v=>v.toString(16).padStart(2,"0")).join(""); }
+function unhex(h){ return [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)]; }
+function extractPalette(img, k){
+  const c = document.createElement("canvas");
+  const sN = 48; c.width = sN; c.height = sN;
+  const cx = c.getContext("2d");
+  cx.drawImage(img, 0, 0, sN, sN);
+  const d = cx.getImageData(0,0,sN,sN).data;
+  const px = [];
+  for(let i=0;i<d.length;i+=4) px.push([d[i],d[i+1],d[i+2]]);
+  px.sort((a,b)=>(a[0]+a[1]+a[2])-(b[0]+b[1]+b[2]));
+  let cent = [];
+  for(let i=0;i<k;i++) cent.push(px[Math.floor((i+0.5)*px.length/k)].slice());
+  for(let it=0; it<8; it++){
+    const sum = cent.map(()=>[0,0,0,0]);
+    for(const p of px){
+      let bi=0, bd=1e9;
+      for(let i=0;i<k;i++){
+        const dr=p[0]-cent[i][0], dg=p[1]-cent[i][1], db=p[2]-cent[i][2];
+        const dist=dr*dr+dg*dg+db*db;
+        if(dist<bd){bd=dist;bi=i;}
+      }
+      sum[bi][0]+=p[0]; sum[bi][1]+=p[1]; sum[bi][2]+=p[2]; sum[bi][3]++;
+    }
+    for(let i=0;i<k;i++) if(sum[i][3]>0)
+      cent[i]=[sum[i][0]/sum[i][3], sum[i][1]/sum[i][3], sum[i][2]/sum[i][3]];
+  }
+  cent.sort((a,b)=>(a[0]*0.299+a[1]*0.587+a[2]*0.114)-(b[0]*0.299+b[1]*0.587+b[2]*0.114));
+  return cent.map(c0=>c0.map(v=>Math.round(v)));
+}
+function uploadPalette(){
+  gl.useProgram(progMain);
+  const flat = new Float32Array(18);
+  for(let i=0;i<6;i++){
+    const c = currentPal[Math.min(i, Math.max(currentPal.length-1,0))] || [40,40,44];
+    flat[i*3]=c[0]/255; flat[i*3+1]=c[1]/255; flat[i*3+2]=c[2]/255;
+  }
+  gl.uniform3fv(U.uPal, flat);
+  gl.uniform1f(U.uPalN, Math.max(currentPal.length, 2));
+}
+function applyPalette(pal, keepBase){
+  if(!keepBase) basePal = pal.map(c=>c.slice());
+  currentPal = pal.map(c=>c.slice());
+  uploadPalette();
+  const sw = document.getElementById("fxSwatches");
+  sw.innerHTML = "";
+  currentPal.forEach((c0, i)=>{
+    const el = document.createElement("input");
+    el.type = "color";
+    el.value = hex(c0);
+    el.title = "Edit palette color " + (i+1);
+    el.addEventListener("input", ()=>{ currentPal[i] = unhex(el.value); uploadPalette(); });
+    sw.appendChild(el);
+  });
+}
+
+// ── state + per-effect slider defaults ──
+const st = {mode:-1, dir:1, disc:true, beatSync:false,
+            speed:1, warp:0.35, streak:0.65, swirl:0.5, scale:1, trail:0, beat:0};
+const MODE_DEFAULTS = {
+  "-1":{speed:1,   warp:0.35, streak:0.65, swirl:0.5, scale:1,   trail:0},
+  "0": {speed:1,   warp:0.35, streak:0.65, swirl:0.5, scale:1,   trail:0},
+  "1": {speed:1,   warp:0.50, streak:0.50, swirl:0.5, scale:1,   trail:0},
+  "2": {speed:1,   warp:0.40, streak:0.30, swirl:0.6, scale:1,   trail:0},
+  "3": {speed:1,   warp:0.50, streak:0.30, swirl:0.4, scale:1,   trail:0},
+  "4": {speed:1,   warp:0.30, streak:0.30, swirl:0.5, scale:1,   trail:0.15},
+  "5": {speed:0.8, warp:0.50, streak:0.30, swirl:0.5, scale:1,   trail:0},
+  "6": {speed:1,   warp:0.30, streak:0.30, swirl:0.4, scale:1,   trail:0.35},
+  "7": {speed:0.8, warp:0.30, streak:0.30, swirl:0.5, scale:1,   trail:0.20},
+  "8": {speed:1.2, warp:0.50, streak:0.50, swirl:0.5, scale:1,   trail:0.25},
+  "9": {speed:1,   warp:0.40, streak:0.30, swirl:0.7, scale:1,   trail:0.75},
+  "10":{speed:0.8, warp:0.20, streak:0.30, swirl:0.5, scale:1,   trail:0.20},
+  "11":{speed:1.2, warp:0.30, streak:0.55, swirl:0.5, scale:1,   trail:0.50},
+  "12":{speed:1,   warp:0.60, streak:0.30, swirl:0.5, scale:1,   trail:0},
+  "13":{speed:1,   warp:0.40, streak:0.60, swirl:0.6, scale:1,   trail:0.50}
+};
+
+const SLIDERS = {
+  speed:["fxSpeed","fxvSpeed"], warp:["fxWarp","fxvWarp"], streak:["fxStreak","fxvStreak"],
+  swirl:["fxSwirl","fxvSwirl"], scale:["fxScale","fxvScale"], trail:["fxTrail","fxvTrail"]
+};
+function syncSlider(k, v){
+  const [id,out] = SLIDERS[k];
+  document.getElementById(id).value = v;
+  document.getElementById(out).textContent = v;
+}
+for(const k in SLIDERS){
+  const [id,out] = SLIDERS[k];
+  const el = document.getElementById(id);
+  el.addEventListener("input", ()=>{
+    st[k] = parseFloat(el.value);
+    document.getElementById(out).textContent = el.value;
+  });
+}
+function applyModeDefaults(m){
+  const d = MODE_DEFAULTS[String(m)];
+  for(const k of ["speed","warp","streak","swirl","scale","trail"]){ st[k]=d[k]; syncSlider(k,d[k]); }
+}
+document.getElementById("fxModes").addEventListener("click", e=>{
+  const b = e.target.closest("button"); if(!b) return;
+  st.mode = parseInt(b.dataset.m,10);
+  applyModeDefaults(st.mode);
+  document.querySelectorAll("#fxModes button").forEach(x=>
+    x.classList.toggle("on", parseInt(x.dataset.m,10)===st.mode));
+  if(!animId) draw();
+});
+document.getElementById("fxDirs").addEventListener("click", e=>{
+  const b = e.target.closest("button"); if(!b) return;
+  st.dir = parseInt(b.dataset.d,10);
+  document.querySelectorAll("#fxDirs button").forEach(x=>x.classList.toggle("on", x===b));
+});
+const fxDiscBtn = document.getElementById("fxDisc");
+fxDiscBtn.addEventListener("click", ()=>{
+  st.disc = !st.disc;
+  fxDiscBtn.textContent = "Disc: " + (st.disc?"on":"off");
+  fxDiscBtn.classList.toggle("on", st.disc);
+  if(!animId) draw();
+});
+const fxBeatBtn = document.getElementById("fxBeat");
+fxBeatBtn.addEventListener("click", ()=>{
+  st.beatSync = !st.beatSync;
+  fxBeatBtn.textContent = "Beat sync: " + (st.beatSync?"on":"off");
+  fxBeatBtn.classList.toggle("on", st.beatSync);
+  if(st.beatSync) ensureAudio();
+});
+document.getElementById("fxRstFx").addEventListener("click", ()=>applyModeDefaults(st.mode));
+document.getElementById("fxRstPal").addEventListener("click", ()=>{
+  applyPalette(basePal, true);
+  const sw = document.getElementById("fxSwatches");
+  sw.style.outline = "1px solid #1db954";
+  setTimeout(()=>{ sw.style.outline = "none"; }, 700);
+});
+
+// ── audio analysis: transient kick + 32 normalized spectrum bands ──
+const fxA = {ctx:null, analyser:null, freq:null};
+let bassAvg = 0.05;
+const spec = new Float32Array(32);
+const specMax = new Float32Array(32).fill(0.05);
+function ensureAudio(){
+  if(fxA.ctx){ if(fxA.ctx.state==="suspended") fxA.ctx.resume(); return; }
+  try{
+    fxA.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = fxA.ctx.createMediaElementSource(audioEl);
+    fxA.analyser = fxA.ctx.createAnalyser();
+    fxA.analyser.fftSize = 2048;
+    fxA.analyser.smoothingTimeConstant = 0.5;
+    fxA.freq = new Uint8Array(fxA.analyser.frequencyBinCount);
+    src.connect(fxA.analyser);
+    fxA.analyser.connect(fxA.ctx.destination);
+  } catch(e){ console.warn("FX audio graph:", e); }
+}
+function updateBeat(tSec){
+  const playing = fxA.analyser && !audioEl.paused;
+  if(playing){
+    fxA.analyser.getByteFrequencyData(fxA.freq);
+    const binHz = fxA.ctx.sampleRate/2048;
+    let lo = Math.max(1, Math.round(30/binHz)), hi = Math.round(130/binHz), sum = 0;
+    for(let i=lo;i<=hi;i++) sum += fxA.freq[i];
+    const bass = sum/((hi-lo+1)*255);
+    bassAvg = bassAvg*0.985 + bass*0.015;
+    const target = Math.min(1, Math.max(0, (bass/(bassAvg+0.02) - 1.0)*1.7));
+    st.beat = st.beatSync ? (target > st.beat ? target : st.beat*0.88) : 0;
+    const fMin = 40, fMax = 14000;
+    for(let b=0;b<32;b++){
+      const f0 = fMin*Math.pow(fMax/fMin, b/32);
+      const f1 = fMin*Math.pow(fMax/fMin, (b+1)/32);
+      let i0 = Math.max(1, Math.round(f0/binHz)), i1 = Math.max(i0, Math.round(f1/binHz));
+      let sm = 0;
+      for(let i=i0;i<=i1;i++) sm += fxA.freq[i];
+      const v = sm/((i1-i0+1)*255);
+      specMax[b] = Math.max(v, specMax[b]*0.995, 0.03);
+      const n = Math.pow(Math.min(1, v/specMax[b]), 1.2);
+      spec[b] = Math.max(n, spec[b]*0.85);
+    }
+  } else {
+    st.beat = st.beat*0.9;
+    for(let b=0;b<32;b++)
+      spec[b] = 0.20 + 0.16*Math.sin(tSec*1.4 + b*0.42) + 0.10*Math.sin(tSec*2.3 + b*1.1);
+  }
+}
+
+// ── render one frame into the FX canvas ──
+function hexToRgb01(h){
+  return [parseInt(h.slice(1,3),16)/255, parseInt(h.slice(3,5),16)/255, parseInt(h.slice(5,7),16)/255];
+}
+const t0 = performance.now();
+function render(W, H, angleDeg, tOverride){
+  if(glc.width!==W || glc.height!==H){ glc.width=W; glc.height=H; }
+  if(fboW!==W || fboH!==H) makeFbos(W, H);
+  const t = (tOverride !== undefined) ? tOverride : (performance.now()-t0)/1000;
+  updateBeat(t);
+  const bg = hexToRgb01(S.bgColor || "#111111");
+  const beatDisc = (st.beatSync && st.disc) ? st.beat : 0;
+  const beatBg   = (st.beatSync && !st.disc) ? st.beat : 0;
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo[cur]);
+  gl.viewport(0,0,W,H);
+  gl.useProgram(progMain);
+  bindQuad(progMain);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, fboTex[1-cur]);
+  gl.uniform1i(U.uTex, 0);
+  gl.uniform1i(U.uPrev, 1);
+  gl.uniform2f(U.uRes, W, H);
+  gl.uniform1f(U.uTime, t);
+  gl.uniform1i(U.uMode, st.mode);
+  gl.uniform1f(U.uSpeed, st.speed);
+  gl.uniform1f(U.uWarp, st.warp);
+  gl.uniform1f(U.uStreak, st.streak);
+  gl.uniform1f(U.uSwirl, st.swirl);
+  gl.uniform1f(U.uScale, st.scale);
+  gl.uniform1f(U.uDir, st.dir);
+  gl.uniform1f(U.uTrail, st.trail);
+  gl.uniform3f(U.uBgCol, bg[0], bg[1], bg[2]);
+  gl.uniform1f(U.uDisc, st.disc ? 1 : 0);
+  gl.uniform1f(U.uDiscR, S.vinylPct * 0.5);
+  gl.uniform1f(U.uAngle, angleDeg * Math.PI/180);
+  gl.uniform1i(U.uDiscFx, st.beatSync ? 1 : 0);
+  gl.uniform1f(U.uBeat, beatDisc);
+  gl.uniform1f(U.uBeatBg, beatBg);
+  gl.uniform1fv(U.uSpec, spec);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0,0,W,H);
+  gl.useProgram(progCopy);
+  bindQuad(progCopy);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, fboTex[cur]);
+  gl.uniform1i(UCopy, 0);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  cur = 1 - cur;
+}
+
+function active(){
+  return S.imageLoaded && (st.mode >= 0 || st.beatSync || !st.disc);
+}
+
+// ── LIVE EXPORT ─────────────────────────────────────────────
+// The classic exporter loops one disc revolution — perfect for a static
+// background. Animated/beat-reactive scenes are not periodic, so this path
+// captures the scene in real time (1×) at full export resolution with the
+// audio muxed in, then transcodes to a high-quality H.264 MP4 in the browser.
+async function liveExport(){
+  stopPreview();
+  btnDownload.style.display = "none";
+  if (lastBlobUrl) { URL.revokeObjectURL(lastBlobUrl); lastBlobUrl = null; }
+  lastBlob = null;
+
+  const duration   = S.audioLoaded ? (S.trimEnd - S.trimStart) * S.audioDuration : S.silentDuration;
+  const audioStart = S.audioLoaded ? S.trimStart * S.audioDuration : 0;
+  const hasAudio   = S.audioLoaded && !!audioFileRef;
+  const W = evenUp(S.canvasW), H = evenUp(S.canvasH);
+
+  // compositor: GL scene + optional foreground image, this is what gets recorded
+  const comp = document.createElement("canvas");
+  comp.width = W; comp.height = H;
+  const cc = comp.getContext("2d");
+
+  ensureAudio();
+  const stream = comp.captureStream(30);
+  let msd = null;
+  if(hasAudio && fxA.ctx){
+    msd = fxA.ctx.createMediaStreamDestination();
+    fxA.analyser.connect(msd);
+    const at = msd.stream.getAudioTracks()[0];
+    if(at) stream.addTrack(at);
+  }
+  const mime = ["video/mp4;codecs=avc1", "video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"]
+    .find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || "video/webm";
+  const isMp4 = mime.indexOf("mp4") >= 0;
+  const rec = new MediaRecorder(stream, {
+    mimeType: mime,
+    videoBitsPerSecond: Math.min(45000000, Math.round(W*H*14))
+  });
+  const chunks = [];
+  rec.ondataavailable = e => { if(e.data && e.data.size) chunks.push(e.data); };
+
+  S.isRecording = true;
+  btnRecord.style.display = "none";
+  btnStop.style.display   = "flex";
+  progressWrap.classList.add("visible");
+  progressTrack.classList.remove("indeterminate");
+  progressFill.style.width = "0%";
+  setStatus("recording", "Live rendering (effects) \u2014 1\u00d7 real time\u2026");
+
+  let cancelled = false, rafId = null, stopped = false;
+  const tStart = performance.now();
+
+  function stopCapture(){
+    if(stopped) return;
+    stopped = true;
+    if(rafId) cancelAnimationFrame(rafId);
+    try{ audioEl.pause(); }catch(_){}
+    try{ if(msd) fxA.analyser.disconnect(msd); }catch(_){}
+    try{ rec.stop(); }catch(_){}
+  }
+  exportAbort = { abort: () => {
+    cancelled = true;
+    stopCapture();
+    try { if (ffmpegInstance) ffmpegInstance.terminate(); } catch (_) {}
+    ffmpegInstance = null; ffmpegLoading = null;
+  }};
+
+  const done = new Promise(res => { rec.onstop = res; });
+  if(hasAudio){
+    audioEl.currentTime = audioStart;
+    try{ await audioEl.play(); }catch(e){ console.warn(e); }
+  }
+  rec.start(1000);
+
+  function loop(){
+    if(stopped) return;
+    const el = (performance.now() - tStart)/1000;
+    const angleDeg = el * S.rpm * 6;                 // rpm * 360 / 60
+    render(W, H, angleDeg);
+    cc.drawImage(glc, 0, 0);
+    if(S.fgImage){
+      const iw = S.fgImage.naturalWidth || S.fgImage.width;
+      const ih = S.fgImage.naturalHeight || S.fgImage.height;
+      const sc = Math.max(W/iw, H/ih);
+      cc.drawImage(S.fgImage, (W-iw*sc)/2, (H-ih*sc)/2, iw*sc, ih*sc);
+    }
+    // mirror the live render into the preview canvas
+    try{ ctx.drawImage(comp, 0, 0, canvas.width, canvas.height); }catch(_){}
+    const pct = Math.min(100, el/duration*100);
+    progressFill.style.width = pct + "%";
+    progressLabel.textContent = "Live rendering\u2026 " + fmt(el) + " / " + fmt(duration);
+    if(el >= duration){ stopCapture(); return; }
+    rafId = requestAnimationFrame(loop);
+  }
+  rafId = requestAnimationFrame(loop);
+
+  try{
+    await done;
+    if(cancelled) throw Object.assign(new Error("aborted"), {name:"AbortError"});
+    const raw = new Blob(chunks, {type: mime});
+
+    // transcode to a clean, universally compatible MP4 (H.264, faststart)
+    progressTrack.classList.add("indeterminate");
+    progressLabel.textContent = "Encoding MP4\u2026";
+    setStatus("recording", "Encoding MP4 on your device\u2026");
+    const ff = await getFFmpeg(() => {
+      progressLabel.textContent = "Downloading engine (first time only)\u2026";
+    });
+    if(cancelled) throw Object.assign(new Error("aborted"), {name:"AbortError"});
+    ff.on("progress", ({progress}) => {
+      const p = Math.min(99, Math.round(Math.max(0, Math.min(1, progress || 0))*100));
+      progressTrack.classList.remove("indeterminate");
+      progressFill.style.width = p + "%";
+      progressLabel.textContent = "Encoding MP4\u2026 " + p + "%";
+    });
+    const inName = isMp4 ? "in.mp4" : "in.webm";
+    await ff.writeFile(inName, new Uint8Array(await raw.arrayBuffer()));
+    const cmd = ["-y","-i",inName,
+      "-c:v","libx264","-preset","veryfast","-crf","17","-pix_fmt","yuv420p"];
+    if(hasAudio) cmd.push("-c:a","aac","-b:a","320k"); else cmd.push("-an");
+    cmd.push("-movflags","+faststart","out.mp4");
+    await ff.exec(cmd);
+    if(cancelled) throw Object.assign(new Error("aborted"), {name:"AbortError"});
+    const data = await ff.readFile("out.mp4");
+    const blob = new Blob([data.buffer], {type:"video/mp4"});
+    for(const f of [inName, "out.mp4"]){ try{ await ff.deleteFile(f); }catch(_){} }
+    progressTrack.classList.remove("indeterminate");
+    finishExport(blob, performance.now() - tStart, "mp4");
+  } catch(e){
+    progressTrack.classList.remove("indeterminate");
+    if(e && e.name === "AbortError"){
+      setStatus("", "Cancelled.");
+      progressWrap.classList.remove("visible");
+    } else {
+      console.error(e);
+      showToast("Export failed: " + (e && e.message ? e.message : "unknown error"));
+      setStatus("", "Export error \u2014 try again.");
+    }
+  } finally {
+    exportAbort = null;
+    resetRecUI();
+  }
+}
+
+return { canvas: glc, active, render, setArtwork, ensureAudio, liveExport };
+})();
+
+// Scroll wheel over the video forwards to the menu, so the preview never moves
+(function(){
+  const pr = document.querySelector(".panel-right");
+  const pl = document.querySelector(".panel-left");
+  if(pr && pl){
+    pr.addEventListener("wheel", (e)=>{ pl.scrollTop += e.deltaY; e.preventDefault(); }, {passive:false});
+  }
+})();
 
 </script>
 </body>
