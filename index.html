@@ -2606,11 +2606,22 @@ async function liveExport(){
     });
     const inName = isMp4 ? "in.mp4" : "in.webm";
     await ff.writeFile(inName, new Uint8Array(await raw.arrayBuffer()));
-    const cmd = ["-y","-i",inName,
-      "-c:v","libx264","-preset","veryfast","-crf","17","-pix_fmt","yuv420p"];
-    if(hasAudio) cmd.push("-c:a","aac","-b:a","320k"); else cmd.push("-an");
-    cmd.push("-movflags","+faststart","out.mp4");
-    await ff.exec(cmd);
+    let encoded = false;
+    if(isMp4){
+      // Chrome recorded H.264/AAC MP4 natively — no re-encode needed.
+      // Stream-copy + faststart takes seconds instead of minutes.
+      try {
+        await ff.exec(["-y","-i",inName,"-c","copy","-movflags","+faststart","out.mp4"]);
+        encoded = true;
+      } catch(_) { /* fall through to full transcode */ }
+    }
+    if(!encoded){
+      const cmd = ["-y","-i",inName,
+        "-c:v","libx264","-preset","ultrafast","-crf","17","-pix_fmt","yuv420p"];
+      if(hasAudio) cmd.push("-c:a","aac","-b:a","320k"); else cmd.push("-an");
+      cmd.push("-movflags","+faststart","out.mp4");
+      await ff.exec(cmd);
+    }
     if(cancelled) throw Object.assign(new Error("aborted"), {name:"AbortError"});
     const data = await ff.readFile("out.mp4");
     const blob = new Blob([data.buffer], {type:"video/mp4"});
