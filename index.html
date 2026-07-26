@@ -1285,9 +1285,9 @@ function checkReady() {
   // Duration picker is always available (opt-in manual length even with audio)
   durationRow.classList.add("visible");
   if (ok && !S.isRecording) {
-    if (!S.audioLoaded)        setStatus("ready", "Ready \u2014 silent video " + fmt(S.silentDuration));
-    else if (S.manualDuration) setStatus("ready", "Ready \u2014 manual " + fmt(S.silentDuration));
-    else                       setStatus("ready", "Ready \u2014 full song " + fmt(S.audioDuration));
+    if (!S.audioLoaded)        setStatus("ready", "Ready — silent video " + fmt(S.silentDuration));
+    else if (S.manualDuration) setStatus("ready", "Ready — manual " + fmt(S.silentDuration));
+    else                       setStatus("ready", "Ready — full song " + fmt(S.audioDuration));
   }
   else if (!S.imageLoaded)     setStatus("", "Upload a photo to begin");
 }
@@ -1582,7 +1582,7 @@ async function startRecording() {
     } else {
       console.error(e);
       showToast("Export failed: " + (e && e.message ? e.message : "unknown error"));
-      setStatus("", "Export error \u2014 try again.");
+      setStatus("", "Export error — try again.");
     }
   } finally {
     exportAbort = null;
@@ -1621,9 +1621,9 @@ function finishExport(blob, elapsedMs, ext) {
 
   const secs = (elapsedMs / 1000).toFixed(1);
   progressFill.style.width  = "100%";
-  progressLabel.textContent = "Ready \u2014 " + sizeStr;
-  setStatus("ready", `Done in ${secs}s \u2014 ${sizeStr}`);
-  showToast("MP4 ready \u2014 " + sizeStr);
+  progressLabel.textContent = "Ready — " + sizeStr;
+  setStatus("ready", `Done in ${secs}s — ${sizeStr}`);
+  showToast("MP4 ready — " + sizeStr);
 }
 
 // ── HELPERS ────────────────────────────────────────────────
@@ -2387,11 +2387,11 @@ function updateBeatAvail(){
   fxBeatBtn.classList.toggle("dis", !beatAllowed);
   fxBeatBtn.title = beatAllowed
     ? "Visuals react to the kick of the playing song"
-    : "Beat sync works on clips up to 1 minute \u2014 pick 30s or 1m under Duration";
+    : "Beat sync works on clips up to 1 minute — pick 30s or 1m under Duration";
 }
 fxBeatBtn.addEventListener("click", ()=>{
   if(!beatAllowed){
-    showToast("Beat sync works on clips up to 1 minute \u2014 pick 30s or 1m under Duration.");
+    showToast("Beat sync works on clips up to 1 minute — pick 30s or 1m under Duration.");
     return;
   }
   st.beatSync = !st.beatSync;
@@ -2571,8 +2571,8 @@ async function liveExport(){
   progressTrack.classList.remove("indeterminate");
   progressFill.style.width = "0%";
   setStatus("recording", fastLoop
-    ? "Fast loop render \u2014 ~" + Math.round(captureSeconds) + "s capture, then looped to full length\u2026"
-    : "Live rendering (effects) \u2014 1\u00d7 real time (beat sync needs the whole song)\u2026");
+    ? "Fast loop render — ~" + Math.round(captureSeconds) + "s capture, then looped to full length\u2026"
+    : "Live rendering (effects) — 1× real time (beat sync needs the whole song)\u2026");
 
   let cancelled = false, rafId = null, stopped = false;
   const tStart = performance.now();
@@ -2581,7 +2581,7 @@ async function liveExport(){
   // render loop and freezes frames in the recording.
   let wakeLock = null;
   try { if(navigator.wakeLock) wakeLock = await navigator.wakeLock.request("screen"); } catch(_){}
-  if(!fastLoop) showToast("Keep this tab visible and focused during the live render \u2014 background throttling freezes frames.");
+  if(!fastLoop) showToast("Keep this tab visible and focused during the live render — background throttling freezes frames.");
 
   function stopCapture(){
     if(stopped) return;
@@ -2716,7 +2716,7 @@ async function liveExport(){
     } else {
       console.error(e);
       showToast("Export failed: " + (e && e.message ? e.message : "unknown error"));
-      setStatus("", "Export error \u2014 try again.");
+      setStatus("", "Export error — try again.");
     }
   } finally {
     exportAbort = null;
@@ -2732,11 +2732,11 @@ return { canvas: glc, active, render, setArtwork, ensureAudio, liveExport, updat
   const el = document.getElementById("fxHints");
   if(!el) return;
   const hints = [
-    "Recording? Keep this tab visible and focused \u2014 background throttling freezes frames.",
-    "Beat sync works on clips up to 1 minute \u2014 pick 30s or 1m under Duration.",
+    "Recording? Keep this tab visible and focused — background throttling freezes frames.",
+    "Beat sync works on clips up to 1 minute — pick 30s or 1m under Duration.",
     "Full song + effects (beat sync off) exports fast: a short seamless loop is rendered once, then extended.",
     "Click or drag on the waveform to jump anywhere in the song.",
-    "Each effect has its own defaults \u2014 the \u21ba reset next to Effect settings brings them back."
+    "Each effect has its own defaults — the ↺ reset next to Effect settings brings them back."
   ];
   let i = 0;
   setInterval(()=>{
