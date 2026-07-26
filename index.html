@@ -61,7 +61,7 @@
     }
     .logo { font-size: 30pt; font-weight: normal; letter-spacing: 0.01em; color: #1a5c2a; font-family: 'Fractal', sans-serif; }
     .logo em { font-style: normal; color: var(--text); }
-    .tagline { font-size: 0.8rem; color: var(--text-muted); }
+    .tagline { font-size: 0.8rem; color: var(--text-muted); transition: opacity .4s; max-width: 46rem; text-align: right; }
 
     /* ── MAIN LAYOUT ────────────────────────────────── */
     main {
@@ -370,6 +370,7 @@
     padding:8px 3px; cursor:pointer; text-transform:uppercase; border-radius:4px;
   }
   .fx-btn.on{border-color:var(--accent,#1db954); color:var(--accent,#1db954);}
+  .fx-btn.dis{opacity:.35; cursor:not-allowed;}
   .fx-lbl{
     font-size:0.66rem; letter-spacing:.10em; text-transform:uppercase;
     color:var(--text-dim, #9a9aa2); margin:12px 0 6px; display:flex; justify-content:space-between;
@@ -443,7 +444,7 @@
 
 <header>
   <div class="logo">storytellers</div>
-  <div class="tagline">Turn your photo and audio into a spinning video</div>
+  <div class="tagline" id="fxHints">Recording? Keep this tab visible and focused \u2014 background throttling freezes frames.</div>
 </header>
 
 <main>
@@ -564,7 +565,6 @@
       <div class="setting-row duration-row" id="durationRow">
         <span class="setting-label">Duration</span>
         <div class="seg-control" id="durationControl">
-          <button data-sec="15">15s</button>
           <button data-sec="30" class="active">30s</button>
           <button data-sec="60">1m</button>
         </div>
@@ -1268,6 +1268,7 @@ function syncDuration() {
   }
   updateDurationButtons();
   checkReady();
+  if (window.FX && FX.updateBeatAvail) FX.updateBeatAvail();
 }
 
 function updateDurationButtons() {
@@ -2372,12 +2373,33 @@ fxDiscBtn.addEventListener("click", ()=>{
   if(!animId) draw();
 });
 const fxBeatBtn = document.getElementById("fxBeat");
+let beatAllowed = true;
+function exportDurationSec(){
+  return S.audioLoaded ? (S.trimEnd - S.trimStart) * S.audioDuration : S.silentDuration;
+}
+function updateBeatAvail(){
+  beatAllowed = exportDurationSec() <= 61;
+  if(!beatAllowed && st.beatSync){
+    st.beatSync = false;
+    fxBeatBtn.textContent = "Beat sync: off";
+    fxBeatBtn.classList.remove("on");
+  }
+  fxBeatBtn.classList.toggle("dis", !beatAllowed);
+  fxBeatBtn.title = beatAllowed
+    ? "Visuals react to the kick of the playing song"
+    : "Beat sync works on clips up to 1 minute \u2014 pick 30s or 1m under Duration";
+}
 fxBeatBtn.addEventListener("click", ()=>{
+  if(!beatAllowed){
+    showToast("Beat sync works on clips up to 1 minute \u2014 pick 30s or 1m under Duration.");
+    return;
+  }
   st.beatSync = !st.beatSync;
   fxBeatBtn.textContent = "Beat sync: " + (st.beatSync?"on":"off");
   fxBeatBtn.classList.toggle("on", st.beatSync);
   if(st.beatSync) ensureAudio();
 });
+updateBeatAvail();
 document.getElementById("fxRstFx").addEventListener("click", ()=>applyModeDefaults(st.mode));
 document.getElementById("fxRstPal").addEventListener("click", ()=>{
   applyPalette(basePal, true);
@@ -2506,6 +2528,21 @@ async function liveExport(){
   const hasAudio   = S.audioLoaded && !!audioFileRef;
   const W = evenUp(S.canvasW), H = evenUp(S.canvasH);
 
+  // Capture strategy:
+  //  • Beat sync ON  → the visuals react to the actual song, so the render
+  //    must run 1× for the full duration. Unavoidable by nature.
+  //  • Beat sync OFF → effects are pure functions of time. We capture only a
+  //    short segment (a whole number of disc revolutions, ≥12 s), make it a
+  //    perfectly seamless loop with a 1 s crossfade baked in ffmpeg (the disc
+  //    angle matches exactly at the loop point, so only the background blends,
+  //    invisibly), then stream-copy-loop it to the full song length. A
+  //    13-minute track exports in about a minute.
+  const XFADE  = 1.0;
+  const revSec = 60 / Math.max(S.rpm, 1);
+  const segLen = revSec * Math.max(1, Math.ceil(12 / revSec));   // whole revolutions, ≥12 s
+  const fastLoop = !st.beatSync && (duration > segLen + XFADE + 2);
+  const captureSeconds = fastLoop ? (segLen + XFADE) : duration;
+
   // compositor: GL scene + optional foreground image, this is what gets recorded
   const comp = document.createElement("canvas");
   comp.width = W; comp.height = H;
@@ -2533,16 +2570,26 @@ async function liveExport(){
   progressWrap.classList.add("visible");
   progressTrack.classList.remove("indeterminate");
   progressFill.style.width = "0%";
-  setStatus("recording", "Live rendering (effects) \u2014 1\u00d7 real time\u2026");
+  setStatus("recording", fastLoop
+    ? "Fast loop render \u2014 ~" + Math.round(captureSeconds) + "s capture, then looped to full length\u2026"
+    : "Live rendering (effects) \u2014 1\u00d7 real time (beat sync needs the whole song)\u2026");
 
   let cancelled = false, rafId = null, stopped = false;
   const tStart = performance.now();
+
+  // Keep the screen awake: display dimming / power saving throttles the
+  // render loop and freezes frames in the recording.
+  let wakeLock = null;
+  try { if(navigator.wakeLock) wakeLock = await navigator.wakeLock.request("screen"); } catch(_){}
+  if(!fastLoop) showToast("Keep this tab visible and focused during the live render \u2014 background throttling freezes frames.");
 
   function stopCapture(){
     if(stopped) return;
     stopped = true;
     if(rafId) cancelAnimationFrame(rafId);
     try{ audioEl.pause(); }catch(_){}
+    try{ if(wakeLock) wakeLock.release(); }catch(_){}
+    wakeLock = null;
     try{ rec.stop(); }catch(_){}
   }
   exportAbort = { abort: () => {
@@ -2552,12 +2599,13 @@ async function liveExport(){
     ffmpegInstance = null; ffmpegLoading = null;
   }};
 
+  let frameN = 0, lastUi = -1;
   const done = new Promise(res => { rec.onstop = res; });
   if(hasAudio){
     audioEl.currentTime = audioStart;
     try{ await audioEl.play(); }catch(e){ console.warn(e); }
   }
-  rec.start(1000);
+  rec.start(4000);
 
   function loop(){
     if(stopped) return;
@@ -2571,14 +2619,20 @@ async function liveExport(){
       const sc = Math.max(W/iw, H/ih);
       cc.drawImage(S.fgImage, (W-iw*sc)/2, (H-ih*sc)/2, iw*sc, ih*sc);
     }
-    // mirror the live render into the preview canvas (every 2nd frame)
-    if((rafId|0) % 2 === 0){
+    // mirror the live render into the preview canvas (every 3rd frame)
+    frameN++;
+    if(frameN % 3 === 0){
       try{ ctx.drawImage(comp, 0, 0, canvas.width, canvas.height); }catch(_){}
     }
-    const pct = Math.min(100, el/duration*100);
-    progressFill.style.width = pct + "%";
-    progressLabel.textContent = "Live rendering\u2026 " + fmt(el) + " / " + fmt(duration);
-    if(el >= duration){ stopCapture(); return; }
+    // DOM writes are layout work — update the progress UI only ~4x/second
+    if(el - lastUi > 0.25){
+      lastUi = el;
+      const pct = Math.min(100, el/captureSeconds*100);
+      progressFill.style.width = pct + "%";
+      progressLabel.textContent = (fastLoop ? "Capturing loop\u2026 " : "Live rendering\u2026 ")
+        + fmt(el) + " / " + fmt(captureSeconds);
+    }
+    if(el >= captureSeconds){ stopCapture(); return; }
     rafId = requestAnimationFrame(loop);
   }
   rafId = requestAnimationFrame(loop);
@@ -2616,14 +2670,37 @@ async function liveExport(){
       cmd.push("-t", String(duration), "-movflags","+faststart","out.mp4");
       return cmd;
     }
-    let encoded = false;
-    if(isMp4){
-      // Native H.264 capture: stream-copy the video and mux the ORIGINAL
-      // audio file — seconds, not minutes, and the sound is bit-perfect.
-      try { await ff.exec(buildCmd(true)); encoded = true; }
-      catch(_) { /* fall through to transcode */ }
+    if(fastLoop){
+      // 1) Bake a seamless loop: crossfade the first XFADE seconds into the
+      //    tail. The disc angle is identical on both layers (whole
+      //    revolutions), so only the background blends — invisibly.
+      const gop = Math.round(segLen * 30);
+      const chain =
+        "[0:v]fps=30,split[s0][s1];" +
+        "[s0]trim=start=" + XFADE + ",setpts=PTS-STARTPTS[a];" +
+        "[s1]trim=duration=" + XFADE + ",setpts=PTS-STARTPTS[b];" +
+        "[a][b]xfade=transition=fade:duration=" + XFADE + ":offset=" + (segLen - XFADE) + "[v]";
+      await ff.exec(["-y","-i",inName,"-filter_complex",chain,"-map","[v]",
+        "-c:v","libx264","-preset","ultrafast","-crf","17","-pix_fmt","yuv420p",
+        "-g",String(gop),"-r","30","loop.mp4"]);
+      // 2) Stream-copy-loop to full length + mux the ORIGINAL audio file.
+      const cmd = ["-y","-stream_loop","-1","-i","loop.mp4"];
+      if(hasAudio) cmd.push("-ss", String(audioStart), "-i", "audio_in");
+      cmd.push("-map","0:v","-t",String(duration),"-c:v","copy");
+      if(hasAudio) cmd.push("-map","1:a","-c:a","aac","-b:a","320k","-shortest");
+      cmd.push("-movflags","+faststart","out.mp4");
+      await ff.exec(cmd);
+      try{ await ff.deleteFile("loop.mp4"); }catch(_){}
+    } else {
+      let encoded = false;
+      if(isMp4){
+        // Native H.264 capture: stream-copy the video and mux the ORIGINAL
+        // audio file — seconds, not minutes, and the sound is bit-perfect.
+        try { await ff.exec(buildCmd(true)); encoded = true; }
+        catch(_) { /* fall through to transcode */ }
+      }
+      if(!encoded) await ff.exec(buildCmd(false));
     }
-    if(!encoded) await ff.exec(buildCmd(false));
     try{ await ff.deleteFile("audio_in"); }catch(_){}
     if(cancelled) throw Object.assign(new Error("aborted"), {name:"AbortError"});
     const data = await ff.readFile("out.mp4");
@@ -2647,7 +2724,29 @@ async function liveExport(){
   }
 }
 
-return { canvas: glc, active, render, setArtwork, ensureAudio, liveExport };
+return { canvas: glc, active, render, setArtwork, ensureAudio, liveExport, updateBeatAvail };
+})();
+
+// Rotating hints in the header — the things worth knowing while you work
+(function(){
+  const el = document.getElementById("fxHints");
+  if(!el) return;
+  const hints = [
+    "Recording? Keep this tab visible and focused \u2014 background throttling freezes frames.",
+    "Beat sync works on clips up to 1 minute \u2014 pick 30s or 1m under Duration.",
+    "Full song + effects (beat sync off) exports fast: a short seamless loop is rendered once, then extended.",
+    "Click or drag on the waveform to jump anywhere in the song.",
+    "Each effect has its own defaults \u2014 the \u21ba reset next to Effect settings brings them back."
+  ];
+  let i = 0;
+  setInterval(()=>{
+    el.style.opacity = "0";
+    setTimeout(()=>{
+      i = (i + 1) % hints.length;
+      el.textContent = hints[i];
+      el.style.opacity = "1";
+    }, 400);
+  }, 7000);
 })();
 
 // Scroll wheel over the video forwards to the menu, so the preview never moves
