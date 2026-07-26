@@ -1125,7 +1125,7 @@ function drawWaveform() {
 
 // Smooth playhead: repaint the waveform while audio is playing
 (function fxPlayheadLoop(){
-  if (S.audioLoaded && !audioEl.paused && waveformPeaks.length) drawWaveform();
+  if (S.audioLoaded && !audioEl.paused && waveformPeaks.length && !S.isRecording) drawWaveform();
   requestAnimationFrame(fxPlayheadLoop);
 })();
 
@@ -2512,14 +2512,11 @@ async function liveExport(){
   const cc = comp.getContext("2d");
 
   ensureAudio();
+  // Video-only capture. The audio is NOT re-captured live (that path stutters
+  // under load) — it is muxed afterwards straight from the original file, so
+  // the soundtrack in the MP4 is bit-perfect. Beat sync still reads the live
+  // playback through the analyser during the render.
   const stream = comp.captureStream(30);
-  let msd = null;
-  if(hasAudio && fxA.ctx){
-    msd = fxA.ctx.createMediaStreamDestination();
-    fxA.analyser.connect(msd);
-    const at = msd.stream.getAudioTracks()[0];
-    if(at) stream.addTrack(at);
-  }
   const mime = ["video/mp4;codecs=avc1", "video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"]
     .find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || "video/webm";
   const isMp4 = mime.indexOf("mp4") >= 0;
@@ -2546,7 +2543,6 @@ async function liveExport(){
     stopped = true;
     if(rafId) cancelAnimationFrame(rafId);
     try{ audioEl.pause(); }catch(_){}
-    try{ if(msd) fxA.analyser.disconnect(msd); }catch(_){}
     try{ rec.stop(); }catch(_){}
   }
   exportAbort = { abort: () => {
@@ -2575,8 +2571,10 @@ async function liveExport(){
       const sc = Math.max(W/iw, H/ih);
       cc.drawImage(S.fgImage, (W-iw*sc)/2, (H-ih*sc)/2, iw*sc, ih*sc);
     }
-    // mirror the live render into the preview canvas
-    try{ ctx.drawImage(comp, 0, 0, canvas.width, canvas.height); }catch(_){}
+    // mirror the live render into the preview canvas (every 2nd frame)
+    if((rafId|0) % 2 === 0){
+      try{ ctx.drawImage(comp, 0, 0, canvas.width, canvas.height); }catch(_){}
+    }
     const pct = Math.min(100, el/duration*100);
     progressFill.style.width = pct + "%";
     progressLabel.textContent = "Live rendering\u2026 " + fmt(el) + " / " + fmt(duration);
@@ -2606,22 +2604,27 @@ async function liveExport(){
     });
     const inName = isMp4 ? "in.mp4" : "in.webm";
     await ff.writeFile(inName, new Uint8Array(await raw.arrayBuffer()));
+    if(hasAudio) await ff.writeFile("audio_in", new Uint8Array(await audioFileRef.arrayBuffer()));
+
+    function buildCmd(copyVideo){
+      const cmd = ["-y","-i",inName];
+      if(hasAudio) cmd.push("-ss", String(audioStart), "-i", "audio_in");
+      cmd.push("-map","0:v");
+      if(copyVideo) cmd.push("-c:v","copy");
+      else cmd.push("-c:v","libx264","-preset","ultrafast","-crf","17","-pix_fmt","yuv420p");
+      if(hasAudio) cmd.push("-map","1:a","-c:a","aac","-b:a","320k","-shortest");
+      cmd.push("-t", String(duration), "-movflags","+faststart","out.mp4");
+      return cmd;
+    }
     let encoded = false;
     if(isMp4){
-      // Chrome recorded H.264/AAC MP4 natively — no re-encode needed.
-      // Stream-copy + faststart takes seconds instead of minutes.
-      try {
-        await ff.exec(["-y","-i",inName,"-c","copy","-movflags","+faststart","out.mp4"]);
-        encoded = true;
-      } catch(_) { /* fall through to full transcode */ }
+      // Native H.264 capture: stream-copy the video and mux the ORIGINAL
+      // audio file — seconds, not minutes, and the sound is bit-perfect.
+      try { await ff.exec(buildCmd(true)); encoded = true; }
+      catch(_) { /* fall through to transcode */ }
     }
-    if(!encoded){
-      const cmd = ["-y","-i",inName,
-        "-c:v","libx264","-preset","ultrafast","-crf","17","-pix_fmt","yuv420p"];
-      if(hasAudio) cmd.push("-c:a","aac","-b:a","320k"); else cmd.push("-an");
-      cmd.push("-movflags","+faststart","out.mp4");
-      await ff.exec(cmd);
-    }
+    if(!encoded) await ff.exec(buildCmd(false));
+    try{ await ff.deleteFile("audio_in"); }catch(_){}
     if(cancelled) throw Object.assign(new Error("aborted"), {name:"AbortError"});
     const data = await ff.readFile("out.mp4");
     const blob = new Blob([data.buffer], {type:"video/mp4"});
