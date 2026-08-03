@@ -2121,7 +2121,7 @@ void main(){
         if(rr0 > 1e-4) dLoc *= rrS/rr0;
       }
 
-      float ca2 = cos(-uAngle), sa2 = sin(-uAngle);
+      float ca2 = cos(uAngle), sa2 = sin(uAngle);
       vec2 rot = vec2(dLoc.x*ca2 - dLoc.y*sa2, dLoc.x*sa2 + dLoc.y*ca2);
       vec3 art;
 
