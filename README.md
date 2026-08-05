@@ -1,140 +1,88 @@
-# Storytellers — Spinning Vinyl Video Maker
+# Storytellers, Spinning Vinyl Video Maker
 
-### ▶️ Live app: **https://andreilucca.github.io/vinylaudio/**
+### Live app: **https://andreilucca.github.io/vinylaudio/**
 
-Turn a photo + a song into a smooth, professional **spinning-vinyl MP4** —
-rendered **100% in your browser**. No server, no upload, no watermark, no
-account. Your files never leave your device.
+Turn a photo and a song into a smooth, professional spinning vinyl MP4 with an
+animated effects engine. Everything renders 100% in your browser: no server,
+no upload, no watermark, no account. Your files never leave your device.
 
-Upload artwork, optionally drop in a track, pick a format, and export a polished
-MP4 with a continuously rotating record, drop shadow and a clean circular edge.
+## Features
 
----
+- **Photo to spinning vinyl**: your image becomes the rotating record label,
+  with drop shadow, anti-aliased circular edge and centre spindle hole.
+- **Effects engine (WebGL)**: 14 animated background effects (Melt, Vortex,
+  Ripple, Tunnel, Kaleido, Glitch, Droste, Liquid, Palette flow, Bloom, Nebula,
+  Spectrum, Warp, Reactor) with per-effect settings, palette editing, forward
+  and reverse direction, and optional trails.
+- **Beat sync**: effects react to the music (clips up to 1 minute). For export,
+  the beat and spectrum are computed offline from the decoded audio with the
+  same maths as the live analyser, so reactions land on exact frame times.
+- **Optional audio**: MP3, WAV, OGG, M4A, or export a silent clip. Full song of
+  any length, or a fixed window (30s or 1m) dragged across the waveform, with
+  audio preview.
+- **Social formats**: Square 1080x1080, Portrait 1080x1350, Story 1080x1920,
+  Wide 1920x1080 (YouTube).
+- **60 fps deterministic export**: every frame is computed at its exact
+  timestamp with a perfectly constant rotation step per frame. Zero dropped or
+  duplicated frames, by construction. The export matches the live preview.
+- **Fast full-song exports**: with beat sync off, only one short seamless loop
+  is rendered (whole disc revolutions plus a 1 second background crossfade
+  baked at render time), then stream-copied to the full song length. A 6 minute
+  song exports in roughly the same time as a 1 minute clip.
+- **Full-song safe**: the export bitrate adapts to the song length so long
+  tracks always fit in browser memory (up to 45 Mbps on short clips, around
+  25 Mbps at 5 to 6 minutes, never below 6 Mbps), with a keyframe every
+  2 seconds for clean seeking.
 
-## ✨ Features
+## How the export works
 
-- **Photo → spinning vinyl** — your image becomes the record label that rotates.
-- **Optional audio** — attach an MP3/WAV/OGG/M4A or export a silent clip.
-- **Full song or manual clip** — use the whole track (any length: 6, 10, 12 min…),
-  or pick a fixed window (15s / 30s / 1m) and **drag it across the waveform** to
-  choose exactly where the clip starts.
-- **Audio preview** — hear the selected portion before exporting.
-- **Social formats** — Square (1:1), Portrait (4:5), Story (9:16), Wide (16:9 — YouTube).
-- **Customisation** — background colour, optional background & foreground
-  images, rotation speed (RPM) and disc size.
-- **High-resolution export** — preview runs at a fast 720 base; the final MP4 is
-  rendered at **1080 base (1.5×)** for crisp output (Wide = 1920×1080).
-- **Crisp circular edge** — only the artwork rotates; a static anti-aliased
-  circular mask is overlaid, so the disc edge never re-samples (no jagged edge).
-- **Smooth, fluid motion** — adaptive **motion blur** (sub-frame averaging via
-  ffmpeg `tmix`) removes the strobing/stepping look of a sharp spinning disc.
-- **Fast & constant render time** — a 6-minute song exports in roughly the same
-  time as a 1-minute clip (see *How it works*).
-- **Live progress** — an animated bar while the rotation renders, then a real
-  percentage while the audio is added.
+The exporter picks the best available strategy at record time. The chosen
+strategy is logged to the browser console as `[vinylaudio export] strategy:`.
 
----
+**1. Deterministic GPU export (primary, WebCodecs).** Frames are rendered by
+the WebGL engine one at a time at exact timestamps and handed straight to the
+GPU hardware H.264 encoder in quality mode. No real-time capture and no
+intermediate encode generation. Output is 60 fps for both fast loop and beat
+sync. The loop crossfade is baked during rendering, so the H.264 stream is
+encoded exactly once; ffmpeg.wasm only remuxes it and muxes the original
+audio (AAC 320k, faststart).
 
-## 🏗️ How it works
+**2. Real-time capture (fallback).** On browsers without WebCodecs H.264
+support, the scene is captured live (MediaRecorder at up to 60 Mbps), then
+ffmpeg.wasm bakes the loop crossfade (x264 superfast, crf 16, adaptive
+maxrate, keyframe every 2 seconds) and muxes the audio.
 
-Everything runs in the browser using **[ffmpeg.wasm](https://ffmpegwasm.netlify.app/)**
-(ffmpeg compiled to WebAssembly). Nothing is uploaded to a server.
+**Classic exporter (effects off).** The disc rotation is perfectly periodic,
+so a single revolution is rendered once with sub-frame motion blur, encoded,
+then stream-copy-looped to the full duration with the original audio muxed in.
 
-```
-┌─────────────────────────────────────────────┐
-│            index.html (your browser)          │
-│  • Canvas live preview + waveform / trim      │
-│  • Canvas composites the art + circular frame │
-│  • ffmpeg.wasm encodes H.264 + muxes audio    │
-│                  ↓                            │
-│            finished .mp4 (download)            │
-└─────────────────────────────────────────────┘
-```
+ffmpeg.wasm is vendored in `vendor/ffmpeg` (nothing fetched from a CDN) and is
+preloaded in the background when the page opens, so recording starts
+instantly. Browser memory is limited to roughly 2 GB, which is why the
+bitrate adapts to duration; very long mixes (20+ minutes) export at more
+modest bitrates.
 
-### Render pipeline
-
-1. **Compositing (Canvas)**
-   - The square **artwork** (cover-fit) is drawn — this is what rotates.
-   - A **static full-canvas overlay** is built: background colour / image, a soft
-     drop shadow, a transparent circular hole, the outer edge ring and the centre
-     spindle hole.
-2. **Rotation + motion blur (ffmpeg.wasm)**
-   - Only the **artwork** is rotated (expanded to its diagonal so it always
-     covers the circular hole) and composited on black.
-   - The spin is rendered at **SUB× fps**, then `tmix` averages every SUB
-     sub-frames back down to fps → real motion blur → fluid, non-strobing
-     rotation. **SUB is adaptive** (up to 4×): render cost ∝ frames × SUB, so it
-     scales down automatically at very low RPM (where one revolution is many
-     frames and blur barely helps) to keep render time bounded.
-   - The **static frame** is overlaid *after* the blur → the circular edge stays
-     razor-sharp. Encoded with **libx264**, `yuv420p`, `crf 20`, `preset veryfast`.
-3. **Periodic-loop optimisation (constant render time)**
-   - Only **one full revolution** of the disc is rendered (a fixed, small number
-     of frames). That segment is then repeated with `-stream_loop` (no
-     re-encode) to the requested duration.
-   - Because the heavy encoding work is always *one revolution*, a 12-minute clip
-     takes about the same time as a 1-minute clip. The loop is made seamless by
-     snapping the RPM to a whole number of frames per revolution (within ~1% of
-     the slider — imperceptible).
-4. **Audio**
-   - The track is trimmed (`-ss <start>`), encoded to **AAC 192k** and muxed onto
-     the looped video; `-movflags +faststart` for instant web playback.
-
-> **Why in-browser?** An earlier version rendered server-side (Flask + ffmpeg).
-> That powerful version is preserved as a restore point — see
-> [LOCAL-VERSION.md](LOCAL-VERSION.md). The in-browser version was built so the
-> app can be hosted for free on GitHub Pages with no backend.
-
----
-
-## 🚀 Running locally
-
-No backend required — it's a static site. Just serve the folder:
-
-```powershell
-python -m http.server 8123
-```
-
-Then open **http://localhost:8123/**.
-
-> **First export downloads the render engine once** (~31 MB ffmpeg.wasm core),
-> then it's cached by the browser. Keep the tab in the foreground while it works.
-
----
-
-## 🎛️ Controls
-
-| Control       | Meaning                                                        |
-|---------------|----------------------------------------------------------------|
-| Photo         | Artwork (required) — becomes the spinning label                |
-| Audio         | Optional track (MP3 / WAV / OGG / M4A)                          |
-| Format        | Square / Portrait / Story / Wide (16:9)                        |
-| Duration      | Full song, or a 15s / 30s / 1m draggable window                |
-| Background    | Background colour (hex)                                         |
-| Bg / Fg image | Optional background / foreground overlay images                |
-| Speed (RPM)   | Rotation speed (revolutions per minute)                        |
-| Photo Size    | Disc diameter as a fraction of the canvas                      |
-
----
-
-## 📁 Project structure
+## Project structure
 
 ```
-storytellers-app/
-├── index.html        # Single-file app: UI + live preview + in-browser export
-├── vendor/ffmpeg/    # Vendored ffmpeg.wasm (ffmpeg.js, util.js, core .js/.wasm)
-├── fonts/            # Brand fonts (Fractal, Futura Std Bold, Nexa Round Glow)
-├── README.md
-├── LOCAL-VERSION.md  # Restore point for the old server-side render version
-└── server.py         # Old Flask backend (kept for the local-server snapshot)
+index.html          the whole app (UI, WebGL engine, exporters)
+vendor/ffmpeg/      vendored ffmpeg.wasm (works offline, no CDN)
+fonts/              embedded fonts
 ```
 
----
+## Usage
 
-## 🛠️ Tech stack
+1. Open the live app (or serve this folder with any static web server).
+2. Upload the artwork, optionally the song, pick a format.
+3. Optionally enable an effect and tune it; the preview is what you get.
+4. Record Video, then Download MP4.
 
-- **Frontend:** vanilla HTML / CSS / JS (single file), Canvas live preview,
-  Web Audio API waveform.
-- **Rendering:** ffmpeg.wasm (libx264, H.264, yuv420p) + AAC audio — all
-  client-side via WebAssembly.
-- **Hosting:** static — GitHub Pages.
+## Troubleshooting
+
+- After an update, check the version tag in the footer (bottom right); hard
+  refresh with Ctrl+F5 if it shows an older version.
+- The console line `[vinylaudio export] strategy:` tells you which pipeline
+  ran: `webcodecs avc1...` means the GPU encoder (the progress label also
+  shows `GPU encode`), anything else means the real-time fallback.
+- Beat sync is available for clips up to 1 minute; loading a full song
+  disables it automatically.
