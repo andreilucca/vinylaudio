@@ -713,7 +713,7 @@
 
 <footer>
   <div class="footer-note">Renders 100% in your browser · 1080 · MP4 H.264 · any song length · no watermark · no upload</div>
-  <div class="footer-note" style="opacity:.7;margin-top:.25rem">WEB v3.1 · full-song safe (adaptive bitrate) · Full HD 1080p · effects engine (WebGL)</div>
+  <div class="footer-note" style="opacity:.7;margin-top:.25rem">WEB v3.2 · full-song safe · sharper loop encode · Full HD 1080p · effects engine (WebGL)</div>
   <div class="footer-tip"><strong>Tip:</strong> Square photos give the cleanest disc look.</div>
 </footer>
 
@@ -2581,7 +2581,7 @@ async function liveExport(){
   const isMp4 = mime.indexOf("mp4") >= 0;
   const rec = new MediaRecorder(stream, {
     mimeType: mime,
-    videoBitsPerSecond: Math.min(45000000, Math.round(W*H*14))
+    videoBitsPerSecond: Math.min(60000000, Math.round(W*H*21))
   });
   const chunks = [];
   rec.ondataavailable = e => { if(e.data && e.data.size) chunks.push(e.data); };
@@ -2687,7 +2687,7 @@ async function liveExport(){
       if(hasAudio) cmd.push("-ss", String(audioStart), "-i", "audio_in");
       cmd.push("-map","0:v");
       if(copyVideo) cmd.push("-c:v","copy");
-      else cmd.push("-c:v","libx264","-preset","ultrafast","-crf","17",
+      else cmd.push("-c:v","libx264","-preset","superfast","-crf","16",
         "-maxrate", capKbps + "k", "-bufsize", (capKbps * 2) + "k", "-pix_fmt","yuv420p");
       if(hasAudio) cmd.push("-map","1:a","-c:a","aac","-b:a","320k","-shortest");
       cmd.push("-t", String(duration), "-movflags","+faststart","out.mp4");
@@ -2698,7 +2698,7 @@ async function liveExport(){
     // loop bitrate adaptively so full-length songs always fit: ~600 MB video
     // budget => up to 20 Mbps for short clips, ~15 Mbps at 5-6 min, less for
     // very long mixes (never below 4 Mbps).
-    const capKbps = Math.max(4000, Math.min(20000, Math.floor(600 * 8192 / Math.max(1, duration))));
+    const capKbps = Math.max(6000, Math.min(28000, Math.floor(1000 * 8192 / Math.max(1, duration))));
     if(fastLoop){
       // 1) Bake a seamless loop: crossfade the first XFADE seconds into the
       //    tail. The disc angle is identical on both layers (whole
@@ -2710,10 +2710,10 @@ async function liveExport(){
         "[s1]trim=duration=" + XFADE + ",setpts=PTS-STARTPTS[b];" +
         "[a][b]xfade=transition=fade:duration=" + XFADE + ":offset=" + (segLen - XFADE) + "[v]";
       await ff.exec(["-y","-i",inName,"-filter_complex",chain,"-map","[v]",
-        "-c:v","libx264","-preset","ultrafast","-crf","17",
+        "-c:v","libx264","-preset","superfast","-crf","16",
         "-maxrate", capKbps + "k", "-bufsize", (capKbps * 2) + "k",
         "-pix_fmt","yuv420p",
-        "-g",String(gop),"-r","30","loop.mp4"]);
+        "-g","60","-r","30","loop.mp4"]);
       // free the captured input BEFORE the big final file is written
       try{ await ff.deleteFile(inName); }catch(_){}
       // 2) Stream-copy-loop to full length + mux the ORIGINAL audio file.
