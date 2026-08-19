@@ -742,7 +742,7 @@
 </main>
 
 <footer>
-  <div class="footer-note">WEB v4.3 · 2026-08-19 · poster card + echo · 10 new effects · aberration + pulse dials · interactive tips · Patin beat sync · GPU deterministic export</div>
+  <div class="footer-note">WEB v4.4 · 2026-08-19 · beat sync export fix (detector reset on new timeline) · pairing tips · arrow separators</div>
 </footer>
 
 <div class="toast" id="toast"></div>
@@ -2704,6 +2704,12 @@ let offlineFreq = null, offlineSR = 48000; // set per-frame during the offline e
 function updateBeat(tSec){
   const playing = (offlineFreq !== null) || (fxA.analyser && !audioEl.paused);
   if(playing){
+    // Timeline restarted (export starts at t=0) or scrubbed backwards:
+    // reset the detector, otherwise the refractory guard stays in the future
+    // and no kick can ever fire again on the new timeline.
+    if(tSec + 0.25 < lastTSec){
+      eFill = 0; eIdx = 0; lastBeatT = -10; st.beat = 0;
+    }
     let freq, sr;
     if(offlineFreq !== null){ freq = offlineFreq; sr = offlineSR; }
     else { fxA.analyser.getByteFrequencyData(fxA.freq); freq = fxA.freq; sr = fxA.ctx.sampleRate; }
