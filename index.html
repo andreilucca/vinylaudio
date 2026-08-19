@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Storytellers — Spinning Photo Video Creator</title>
+  <title>Storytellers → Spinning Photo Video Creator</title>
 
   <style>
     @font-face {
@@ -61,7 +61,7 @@
     }
     .logo { font-size: 30pt; font-weight: normal; letter-spacing: 0.01em; color: #1a5c2a; font-family: 'Fractal', sans-serif; }
     .logo em { font-style: normal; color: var(--text); }
-    .tagline { font-size: 0.8rem; color: var(--text-muted); transition: opacity .4s; max-width: 46rem; text-align: right; }
+    .tagline { font-size: 0.8rem; color: rgba(228,228,234,.60); transition: opacity .35s; max-width: 46rem; text-align: right; }
 
     /* ── MAIN LAYOUT ────────────────────────────────── */
     main {
@@ -238,7 +238,7 @@
     .progress-track { height: 4px; background: var(--surface3); border-radius: 2px; overflow: hidden; }
     .progress-fill  { height: 100%; background: var(--accent); border-radius: 2px;
                       transition: width 0.35s linear; width: 0%; }
-    /* Indeterminate "working" animation — a stripe sweeping across the track
+    /* Indeterminate "working" animation → a stripe sweeping across the track
        so the user sees motion while the server renders (no exact %). */
     .progress-track.indeterminate .progress-fill {
       width: 35% !important; transition: none;
@@ -409,7 +409,7 @@
 </head>
 <body>
 
-<!-- Password gate: a casual access barrier (not real security — the static
+<!-- Password gate: a casual access barrier (not real security → the static
      site source is still public). Blocks use of the app until the password is
      entered. Unlock persists for the browser session. -->
 <div class="gate" id="gate" aria-hidden="false">
@@ -449,7 +449,7 @@
 
 <header>
   <div class="logo">storytellers</div>
-  <div class="tagline" id="fxHints">Recording? Keep this tab visible and focused — background throttling freezes frames.</div>
+  <div class="tagline" id="fxHints"></div>
 </header>
 
 <main>
@@ -486,7 +486,7 @@
           <circle cx="18" cy="16" r="3"/>
         </svg>
         <div class="upload-title">Upload Audio</div>
-        <div class="upload-subtitle">MP3, WAV, OGG, M4A — or skip for silent video</div>
+        <div class="upload-subtitle">MP3, WAV, OGG, M4A → or skip for silent video</div>
         <div class="upload-filename" id="audioFilename"></div>
       </label>
       <audio id="audioEl" style="display:none" crossorigin="anonymous"></audio>
@@ -494,7 +494,7 @@
       <!-- Waveform timeline (appears after audio load) -->
       <div class="waveform-wrap" id="waveformWrap">
         <div class="waveform-header">
-          <span class="waveform-hint" id="waveformHint">Full song — entire track will be used</span>
+          <span class="waveform-hint" id="waveformHint">Full song → entire track will be used</span>
           <span class="waveform-time" id="waveformTime">0:00</span>
         </div>
         <div class="waveform-canvas-wrap" id="waveformWrap2">
@@ -630,8 +630,8 @@
       <div class="fx-lbl" style="margin-top:0">Artwork</div>
       <div class="fx-grid2" id="fxArt" style="grid-template-columns:repeat(3,1fr)">
         <button class="fx-btn on" data-a="disc" title="Spinning vinyl disc">Disc</button>
-        <button class="fx-btn" data-a="card" title="Square poster centred on the frame — no rotation. Pulses subtly on the kick when Beat sync is on.">Card</button>
-        <button class="fx-btn" data-a="off" title="No artwork layer — the background effect fills the whole frame">Off</button>
+        <button class="fx-btn" data-a="card" title="Square poster centred on the frame → no rotation. Pulses subtly on the kick when Beat sync is on.">Card</button>
+        <button class="fx-btn" data-a="off" title="No artwork layer → the background effect fills the whole frame">Off</button>
       </div>
       <div class="fx-grid2" style="margin-top:6px">
         <button class="fx-btn" id="fxBeat" style="grid-column:1/-1">Beat sync: off</button>
@@ -639,37 +639,37 @@
 
       <div class="fx-lbl">Export render <b id="fxvRender" style="text-transform:none">Fast loop</b></div>
       <div class="fx-grid2" id="fxRender">
-        <button class="fx-btn on" data-r="loop" title="Renders ~15s once and loops it seamlessly — any song length exports in about a minute. Slow-evolving motion (e.g. Ripple's rotation) repeats instead of progressing.">Fast loop</button>
-        <button class="fx-btn" data-r="full" title="Renders every frame of the whole song deterministically on the GPU — faster than real time, and slow rotations complete fully across the entire track.">Full render</button>
+        <button class="fx-btn on" data-r="loop" title="Renders ~15s once and loops it seamlessly → any song length exports in about a minute. Slow-evolving motion (e.g. Ripple's rotation) repeats instead of progressing.">Fast loop</button>
+        <button class="fx-btn" data-r="full" title="Renders every frame of the whole song deterministically on the GPU → faster than real time, and slow rotations complete fully across the entire track.">Full render</button>
       </div>
 
       <div class="fx-lbl">Background effect</div>
       <div class="fx-grid2" id="fxModes">
         <button class="fx-btn on" data-m="-1" style="grid-column:1/-1">Off</button>
         <button class="fx-btn" data-m="0">Melt</button>
-        <button class="fx-btn" data-m="2" title="Continuous global rotation — on a full song use Export render: Full render so the artwork keeps turning instead of repeating">Vortex <span class="fx-badge">FULL</span></button>
-        <button class="fx-btn" data-m="3" title="Very slow continuous rotation — on a full song use Export render: Full render so text/details travel the whole circle">Ripple <span class="fx-badge">FULL</span></button>
-        <button class="fx-btn" data-m="6" title="With Swirl > 0 the tunnel also rotates slowly — for that, use Export render: Full render on full songs">Tunnel <span class="fx-badge">FULL</span></button>
-        <button class="fx-btn" data-m="7" title="Segments rotate continuously — on a full song use Export render: Full render for uninterrupted rotation">Kaleido <span class="fx-badge">FULL</span></button>
+        <button class="fx-btn" data-m="2" title="Continuous global rotation → on a full song use Export render: Full render so the artwork keeps turning instead of repeating">Vortex <span class="fx-badge">FULL</span></button>
+        <button class="fx-btn" data-m="3" title="Very slow continuous rotation → on a full song use Export render: Full render so text/details travel the whole circle">Ripple <span class="fx-badge">FULL</span></button>
+        <button class="fx-btn" data-m="6" title="With Swirl > 0 the tunnel also rotates slowly → for that, use Export render: Full render on full songs">Tunnel <span class="fx-badge">FULL</span></button>
+        <button class="fx-btn" data-m="7" title="Segments rotate continuously → on a full song use Export render: Full render for uninterrupted rotation">Kaleido <span class="fx-badge">FULL</span></button>
         <button class="fx-btn" data-m="8">Glitch</button>
         <button class="fx-btn" data-m="10">Droste</button>
         <button class="fx-btn" data-m="12">Liquid</button>
         <button class="fx-btn" data-m="1">Palette flow</button>
         <button class="fx-btn" data-m="4">Bloom</button>
         <button class="fx-btn" data-m="5">Nebula</button>
-        <button class="fx-btn" data-m="9" title="Follows the music itself — Fast loop would repeat only the first seconds of bars; on a full song use Export render: Full render">Spectrum <span class="fx-badge">FULL</span></button>
+        <button class="fx-btn" data-m="9" title="Follows the music itself → Fast loop would repeat only the first seconds of bars; on a full song use Export render: Full render">Spectrum <span class="fx-badge">FULL</span></button>
         <button class="fx-btn" data-m="11">Warp</button>
         <button class="fx-btn" data-m="13">Reactor</button>
-        <button class="fx-btn" data-m="14" title="The artwork itself, blurred and darkened, filling the frame — the classic echo behind a poster or disc">Echo</button>
-        <button class="fx-btn" data-m="15" title="Compression-corruption melt: blocks drag the previous frame while keyframe bands refresh it. Feedback-based — on full songs use Full render.">Datamosh <span class="fx-badge">FULL</span></button>
+        <button class="fx-btn" data-m="14" title="The artwork itself, blurred and darkened, filling the frame → the classic echo behind a poster or disc">Echo</button>
+        <button class="fx-btn" data-m="15" title="Compression-corruption melt: blocks drag the previous frame while keyframe bands refresh it. Feedback-based → on full songs use Full render.">Datamosh <span class="fx-badge">FULL</span></button>
         <button class="fx-btn" data-m="17" title="Tape wobble, rolling tracking band, chroma bleed, scanlines. Streak = bleed, Swirl = noise.">VHS</button>
         <button class="fx-btn" data-m="18" title="Film burn: warm light leaks drifting over the artwork with gentle flicker. Streak = intensity, Swirl = leak size.">Burn</button>
-        <button class="fx-btn" data-m="19" title="The artwork as rotated print dots on warm paper — riso/editorial look. Scale = dot density.">Halftone</button>
+        <button class="fx-btn" data-m="19" title="The artwork as rotated print dots on warm paper → riso/editorial look. Scale = dot density.">Halftone</button>
         <button class="fx-btn" data-m="20" title="The artwork cut into horizontal bars sliding kinetically. Scale = bar count, Streak = slide amount.">Slices</button>
-        <button class="fx-btn" data-m="16" title="The frame falls endlessly into itself — classic visualizer zoom echo. Reverse zooms outward. Feedback-based: on full songs use Full render.">Feedback <span class="fx-badge">FULL</span></button>
+        <button class="fx-btn" data-m="16" title="The frame falls endlessly into itself → classic visualizer zoom echo. Reverse zooms outward. Feedback-based: on full songs use Full render.">Feedback <span class="fx-badge">FULL</span></button>
         <button class="fx-btn" data-m="21" title="1-bit Bayer dither: ink dots on paper, retro-web. Scale = resolution, Streak = contrast, Swirl = tint the ink from the palette.">Dither</button>
         <button class="fx-btn" data-m="22" title="Terminal mosaic: glyph-like marks whose density follows the artwork. Swirl blends from terminal green to palette colors.">ASCII</button>
-        <button class="fx-btn" data-m="23" title="Two copies of the artwork spinning in opposite directions, blended into a psychedelic moire. Continuous rotation — on full songs use Full render.">Twinspin <span class="fx-badge">FULL</span></button>
+        <button class="fx-btn" data-m="23" title="Two copies of the artwork spinning in opposite directions, blended into a psychedelic moire. Continuous rotation → on full songs use Full render.">Twinspin <span class="fx-badge">FULL</span></button>
       </div>
       <div class="fx-grid2" id="fxDirs" style="margin-top:6px">
         <button class="fx-btn on" data-d="1">&#10227; Forward</button>
@@ -689,9 +689,9 @@
       <div class="fx-row"><input type="range" id="fxScale" min="0.3" max="3" step="0.05" value="1"></div>
       <div class="fx-lbl">Trails <b id="fxvTrail">0</b></div>
       <div class="fx-row"><input type="range" id="fxTrail" min="0" max="0.95" step="0.01" value="0"></div>
-      <div class="fx-lbl" title="Global RGB split, stronger toward the edges — applies over everything: effect, disc, card">Aberration <b id="fxvCa">0</b></div>
+      <div class="fx-lbl" title="Global RGB split, stronger toward the edges → applies over everything: effect, disc, card">Aberration <b id="fxvCa">0</b></div>
       <div class="fx-row"><input type="range" id="fxCa" min="0" max="1" step="0.01" value="0"></div>
-      <div class="fx-lbl" title="Internal rhythm: a slow pump that breathes through the background — warp swells and brightness pulses, no audio needed. Rate follows the Speed slider.">Pulse <b id="fxvPulse">0</b></div>
+      <div class="fx-lbl" title="Internal rhythm: a slow pump that breathes through the background → warp swells and brightness pulses, no audio needed. Rate follows the Speed slider.">Pulse <b id="fxvPulse">0</b></div>
       <div class="fx-row"><input type="range" id="fxPulse" min="0" max="1" step="0.01" value="0"></div>
 
       <div class="fx-lbl">Palette <button class="fx-rst" id="fxRstPal">&#8634; reset</button></div>
@@ -742,9 +742,7 @@
 </main>
 
 <footer>
-  <div class="footer-note">Renders 100% in your browser · 1080 · MP4 H.264 · any song length · no watermark · no upload</div>
-  <div class="footer-note" style="opacity:.7;margin-top:.25rem">WEB v4.2 · 2026-08-19 · GPU deterministic export · 60 fps · full-song safe · fast-loop / full render · effects engine (WebGL)</div>
-  <div class="footer-tip"><strong>Tip:</strong> Square photos give the cleanest disc look.</div>
+  <div class="footer-note">WEB v4.3 · 2026-08-19 · poster card + echo · 10 new effects · aberration + pulse dials · interactive tips · Patin beat sync · GPU deterministic export</div>
 </footer>
 
 <div class="toast" id="toast"></div>
@@ -769,8 +767,8 @@ const S = {
   manualDuration: false, // when audio loaded: false = full song, true = use silentDuration
   trimStart:      0,     // 0–1 fraction of audioDuration
   trimEnd:        1,     // 0–1 fraction of audioDuration
-  bgImage:        null,  // HTMLImageElement — background image (behind disc)
-  fgImage:        null,  // HTMLImageElement — foreground image (in front of disc)
+  bgImage:        null,  // HTMLImageElement → background image (behind disc)
+  fgImage:        null,  // HTMLImageElement → foreground image (in front of disc)
 };
 
 // ── DOM REFS ───────────────────────────────────────────────
@@ -824,7 +822,7 @@ let bgImageFileRef  = null;
 let fgImageFileRef  = null;
 let exportAbort     = null;   // AbortController for the in-flight /export request
 
-// Export — final MP4 is rendered server-side (server.py + ffmpeg).
+// Export → final MP4 is rendered server-side (server.py + ffmpeg).
 const REC_FPS      = 30;
 // Preview canvas is 720-based for speed; the exported MP4 is rendered at
 // 1.5× (1080 base) for a crisp, high-resolution result. Dimensions are
@@ -854,7 +852,7 @@ function applyCanvasSize() {
 // Everything except the disc's ROTATION is static. We render the heavy
 // stuff (background, blurred drop-shadow, album art clipped to a circle,
 // rings, spindle hole) ONCE into offscreen canvases. Each animation/export
-// frame then costs just 2–3 drawImage calls + one rotation — orders of
+// frame then costs just 2–3 drawImage calls + one rotation → orders of
 // magnitude cheaper than re-running shadowBlur/gradients every frame.
 let bgSprite   = null;   // bgColor + bgImage + static drop shadow
 let discSprite = null;   // rotating disc content (art + ring + hole)
@@ -1001,7 +999,7 @@ function drawWith(tctx, W, H, set, angleDeg) {
 }
 
 // ── ANIMATION LOOP ─────────────────────────────────────────
-// Live preview only: angle derived from wall-clock time — smooth on screen.
+// Live preview only: angle derived from wall-clock time → smooth on screen.
 // Recording is handled by a separate OFFLINE loop (recordFrames) that runs
 // as fast as the encoder allows, fully decoupled from this rAF loop.
 function animLoop(ts) {
@@ -1143,7 +1141,7 @@ function drawWaveform() {
     wCtx.fillRect(ex - 2, 0, 2, H);
   }
 
-  // Playhead — live position marker while the song plays or after a seek
+  // Playhead → live position marker while the song plays or after a seek
   if (S.audioLoaded && S.audioDuration > 0 && (!audioEl.paused || audioEl.currentTime > 0)) {
     const px = Math.min(W - 1, (audioEl.currentTime / S.audioDuration) * W);
     wCtx.fillStyle = "rgba(234,255,234,0.95)";
@@ -1170,7 +1168,7 @@ function updateWaveformTime() {
   } else {
     waveformTime.textContent = fmt(S.audioDuration);
     trimDuration.textContent = "Full length: " + fmt(S.audioDuration);
-    waveformHint.textContent = "Full song — entire track will be used";
+    waveformHint.textContent = "Full song → entire track will be used";
   }
 }
 
@@ -1187,7 +1185,7 @@ function setupWaveformDrag() {
   // grab offset), clamped so the window always stays inside the track.
   let fxSeekLast = 0;
   function fxLiveSeek(force) {
-    // While previewing, follow the window in real time — no stop/play needed.
+    // While previewing, follow the window in real time → no stop/play needed.
     if (!previewPlaying) return;
     const now = performance.now();
     if (!force && now - fxSeekLast < 180) return;   // throttle scrubbing jumps
@@ -1226,7 +1224,7 @@ function setupWaveformDrag() {
   function beginDrag(clientX) {
     if (!S.audioLoaded) return false;
     if (!S.manualDuration) {
-      // Full-song mode: the waveform is a scrubber — click or drag to jump
+      // Full-song mode: the waveform is a scrubber → click or drag to jump
       // anywhere in the track, even on an 8-minute song.
       wfDragging = "seek";
       seekFull(clientX);
@@ -1334,9 +1332,9 @@ function checkReady() {
   // Duration picker is always available (opt-in manual length even with audio)
   durationRow.classList.add("visible");
   if (ok && !S.isRecording) {
-    if (!S.audioLoaded)        setStatus("ready", "Ready — silent video " + fmt(S.silentDuration));
-    else if (S.manualDuration) setStatus("ready", "Ready — manual " + fmt(S.silentDuration));
-    else                       setStatus("ready", "Ready — full song " + fmt(S.audioDuration));
+    if (!S.audioLoaded)        setStatus("ready", "Ready → silent video " + fmt(S.silentDuration));
+    else if (S.manualDuration) setStatus("ready", "Ready → manual " + fmt(S.silentDuration));
+    else                       setStatus("ready", "Ready → full song " + fmt(S.audioDuration));
   }
   else if (!S.imageLoaded)     setStatus("", "Upload a photo to begin");
 }
@@ -1346,13 +1344,13 @@ function setStatus(cls, msg) {
   statusText.textContent = msg;
 }
 
-// ── EXPORT — 100% in-browser render (ffmpeg.wasm) ──────────
+// ── EXPORT → 100% in-browser render (ffmpeg.wasm) ──────────
 // Mirrors server.py exactly, but runs ffmpeg compiled to WebAssembly right in
-// the browser — no server, free, works from GitHub Pages. The disc spin is
+// the browser → no server, free, works from GitHub Pages. The disc spin is
 // perfectly periodic, so we render only ONE short looping segment (a whole
 // number of revolutions) and then stream-copy-loop it to the full song length
 // and mux the audio. Render time is therefore CONSTANT regardless of whether
-// the song is 30 seconds or 15 minutes — ideal for full-length YouTube uploads.
+// the song is 30 seconds or 15 minutes → ideal for full-length YouTube uploads.
 
 let ffmpegInstance = null;   // cached FFmpeg instance (core downloaded once)
 let ffmpegLoading  = null;   // in-flight load promise
@@ -1383,7 +1381,7 @@ async function getFFmpeg(onStartLoad) {
   finally { ffmpegLoading = null; }
 }
 
-// Square artwork (cover-fit), no clip — the clean circular edge comes from the
+// Square artwork (cover-fit), no clip → the clean circular edge comes from the
 // static frame overlay (mirrors server.py build_art).
 function exportArtCanvas(W, H) {
   const R  = Math.min(W, H) * (S.vinylPct / 2);
@@ -1488,12 +1486,12 @@ async function startRecording() {
 
   // Periodic-loop maths. A spinning disc repeats exactly after one revolution,
   // so we render only the SHORTEST seamless segment and stream-copy-loop it to
-  // the full song length — render time is then constant (a few seconds) no
+  // the full song length → render time is then constant (a few seconds) no
   // matter if the track is 30s or 15 minutes.
   //   • We render exactly ONE revolution.
   //   • One revolution at the user's RPM rarely lands on a whole frame, which
   //     would make the loop seam jump. So we round the revolution to a whole
-  //     number of frames and use that exact effective RPM for the render — the
+  //     number of frames and use that exact effective RPM for the render → the
   //     last frame then perfectly precedes frame 0, giving a seamless loop with
   //     a speed within ~1% of the slider (imperceptible).
   const totalFrames = Math.max(1, Math.round(fps * duration));
@@ -1634,7 +1632,7 @@ async function startRecording() {
     } else {
       console.error(e);
       showToast("Export failed: " + (e && e.message ? e.message : "unknown error"));
-      setStatus("", "Export error — try again.");
+      setStatus("", "Export error → try again.");
     }
   } finally {
     exportAbort = null;
@@ -1673,9 +1671,9 @@ function finishExport(blob, elapsedMs, ext) {
 
   const secs = (elapsedMs / 1000).toFixed(1);
   progressFill.style.width  = "100%";
-  progressLabel.textContent = "Ready — " + sizeStr;
-  setStatus("ready", `Done in ${secs}s — ${sizeStr}`);
-  showToast("MP4 ready — " + sizeStr);
+  progressLabel.textContent = "Ready → " + sizeStr;
+  setStatus("ready", `Done in ${secs}s → ${sizeStr}`);
+  showToast("MP4 ready → " + sizeStr);
 }
 
 // ── HELPERS ────────────────────────────────────────────────
@@ -1834,7 +1832,7 @@ startAnim();
 
 
 // ═══════════════════════════════════════════════════════════
-// FX — WebGL effects engine (backgrounds + beat-reactive disc)
+// FX → WebGL effects engine (backgrounds + beat-reactive disc)
 // Integrates with the existing app: when inactive, the classic
 // sprite pipeline and the fast loop-export run untouched.
 // ═══════════════════════════════════════════════════════════
@@ -1843,7 +1841,7 @@ window.FX = (function(){
 
 const glc = document.createElement("canvas");
 const gl = glc.getContext("webgl", {antialias:false});
-if(!gl){ console.warn("FX: WebGL unavailable — effects disabled."); return null; }
+if(!gl){ console.warn("FX: WebGL unavailable → effects disabled."); return null; }
 
 const VS = `
 attribute vec2 aPos;
@@ -1987,7 +1985,7 @@ vec3 background(vec2 uv, float t, float aspect){
     col *= 0.45 + 0.65*n2;
 
   } else if(uMode == 6){
-    // Tunnel — infinite fly-through built from the artwork (seam-free)
+    // Tunnel → infinite fly-through built from the artwork (seam-free)
     vec2 c = uv - 0.5; c.x *= aspect;
     float r = length(c) + 1e-4;
     float a = atan(c.y, c.x);
@@ -2002,7 +2000,7 @@ vec3 background(vec2 uv, float t, float aspect){
     col *= smoothstep(0.0, 0.30, r);          // deep dark core
 
   } else if(uMode == 7){
-    // Kaleido — mirrored segments of the artwork, slowly rotating
+    // Kaleido → mirrored segments of the artwork, slowly rotating
     vec2 c = uv - 0.5; c.x *= aspect;
     float r = length(c);
     float a = atan(c.y, c.x) + t*0.15*uDir;
@@ -2015,7 +2013,7 @@ vec3 background(vec2 uv, float t, float aspect){
     col = grade(texture2D(uTex, mirror(p)).rgb);
 
   } else if(uMode == 8){
-    // Glitch — Berlin cut: row shifts, block jumps, chromatic split, scanlines
+    // Glitch → Berlin cut: row shifts, block jumps, chromatic split, scanlines
     vec2 p = uv;
     float gseed = floor(uTime*6.0);
     float row = floor(p.y*(24.0 + uScale*40.0));
@@ -2032,7 +2030,7 @@ vec3 background(vec2 uv, float t, float aspect){
     col *= 0.92 + 0.08*sin(uv.y*uRes.y*3.14159);
 
   } else if(uMode == 9){
-    // Spectrum — radial equalizer in palette colors, echo-friendly
+    // Spectrum → radial equalizer in palette colors, echo-friendly
     vec2 c = uv - 0.5; c.x *= aspect;
     float r = length(c);
     float a = atan(c.y, c.x)*uDir + t*0.10;
@@ -2048,7 +2046,7 @@ vec3 background(vec2 uv, float t, float aspect){
   }
 
   if(uMode == 10){
-    // Droste — infinite spiralling zoom into the artwork (seam-free:
+    // Droste → infinite spiralling zoom into the artwork (seam-free:
     // both wrap jumps equal exactly one mirror period of 2.0, and the
     // jitter noise is fed continuous screen coords, never wrapped ones)
     vec2 c = uv - 0.5; c.x *= aspect;
@@ -2063,7 +2061,7 @@ vec3 background(vec2 uv, float t, float aspect){
     col *= smoothstep(0.0, 0.12, r);
 
   } else if(uMode == 11){
-    // Warp — hyperspace star streaks in the palette colors
+    // Warp → hyperspace star streaks in the palette colors
     vec2 c = uv - 0.5; c.x *= aspect;
     float r = length(c) + 1e-4;
     float a2 = atan(c.y, c.x);
@@ -2085,7 +2083,7 @@ vec3 background(vec2 uv, float t, float aspect){
     col += palette(0.8)*exp(-r*9.0)*0.35*uSwirl;             // warp core glow
 
   } else if(uMode == 12){
-    // Liquid — the artwork as molten metal with moving light
+    // Liquid → the artwork as molten metal with moving light
     float sc = 3.0*uScale;
     vec2 wp = uv + (vec2(fbm(uv*sc + vec2(t*0.12, 0.0)),
                          fbm(uv*sc + vec2(0.0, t*0.10) + 5.1))-0.5)*w*1.2;
@@ -2102,7 +2100,7 @@ vec3 background(vec2 uv, float t, float aspect){
   }
 
   if(uMode == 13){
-    // Reactor — chain reaction: energy flows outward along spiral arms that
+    // Reactor → chain reaction: energy flows outward along spiral arms that
     // twist like a vortex, with bright nodes chasing each other down the chain.
     // Every angular term uses integer harmonics or cos/sin pairs, so the
     // pattern is seamless all the way around.
@@ -2125,7 +2123,7 @@ vec3 background(vec2 uv, float t, float aspect){
   }
 
   if(uMode == 14){
-    // Echo — the artwork itself, blurred, darkened and slightly zoomed,
+    // Echo → the artwork itself, blurred, darkened and slightly zoomed,
     // filling the whole frame (the classic pillarbox echo behind a poster)
     vec2 qq = (uv - 0.5) * vec2(aspect, 1.0);
     qq /= max(aspect, 1.0);                                  // cover-fit, correct aspect
@@ -2136,7 +2134,7 @@ vec3 background(vec2 uv, float t, float aspect){
   }
 
   if(uMode == 15){
-    // Datamosh — compression-corruption look: per-block motion vectors drag
+    // Datamosh → compression-corruption look: per-block motion vectors drag
     // the PREVIOUS frame, while a rolling keyframe band + random blocks
     // re-inject the clean artwork. Feedback-based, so it never repeats.
     vec2 bs = vec2(24.0, 18.0)*uScale;
@@ -2151,7 +2149,7 @@ vec3 background(vec2 uv, float t, float aspect){
     col = min(mix(prev, srcc, clamp(refresh + 0.025, 0.0, 1.0)), vec3(1.25));
 
   } else if(uMode == 17){
-    // VHS — tape wobble, rolling tracking band, chroma bleed, scanlines
+    // VHS → tape wobble, rolling tracking band, chroma bleed, scanlines
     vec2 p = uv;
     float ln = floor(p.y*uRes.y*0.5);
     p.x += (hash(vec2(ln, floor(t*15.0)))-0.5) * 0.0025 * (0.5 + w);
@@ -2173,7 +2171,7 @@ vec3 background(vec2 uv, float t, float aspect){
     col = mix(col, col.gbr*0.7 + 0.15, smoothstep(0.015, 0.004, uv.y)*0.8);
 
   } else if(uMode == 18){
-    // Burn — film burn: warm light leaks drifting over the artwork + flicker
+    // Burn → film burn: warm light leaks drifting over the artwork + flicker
     vec3 base = grade(texture2D(uTex, mirror(uv + vec2(wx,wy)*w*0.15)).rgb);
     vec3 leak = vec3(0.0);
     for(int i=0;i<3;i++){
@@ -2189,7 +2187,7 @@ vec3 background(vec2 uv, float t, float aspect){
     col = 1.0 - (1.0 - col)*(1.0 - leak*(0.45 + 0.55*uStreak));   // screen blend
 
   } else if(uMode == 19){
-    // Halftone — the artwork as rotated print dots on warm paper
+    // Halftone → the artwork as rotated print dots on warm paper
     vec3 base = grade(texture2D(uTex, mirror(uv + vec2(wx,wy)*w*0.10)).rgb);
     float cellN = 90.0*uScale;
     float ang = 0.26 + t*0.02*uDir;
@@ -2204,7 +2202,7 @@ vec3 background(vec2 uv, float t, float aspect){
     col *= 0.97 + 0.05*hash(uv*uRes.xy*0.5);
 
   } else if(uMode == 20){
-    // Slices — the artwork cut into horizontal bars sliding kinetically
+    // Slices → the artwork cut into horizontal bars sliding kinetically
     float nB = 7.0 + floor(uScale*6.0);
     float row = floor(uv.y*nB);
     float hr = hash(vec2(row, 5.7));
@@ -2217,7 +2215,7 @@ vec3 background(vec2 uv, float t, float aspect){
   }
 
   if(uMode == 16){
-    // Feedback — the frame falls endlessly into itself (Milkdrop zoom echo).
+    // Feedback → the frame falls endlessly into itself (Milkdrop zoom echo).
     // Feedback-based: never repeats.
     float sc = uDir > 0.0 ? 1.0/(1.030 + 0.05*uStreak) : (1.030 + 0.05*uStreak);
     float rk = 0.015*uDir + (fbm(vec2(t*0.05, 1.7))-0.5)*w*0.05;
@@ -2230,7 +2228,7 @@ vec3 background(vec2 uv, float t, float aspect){
     col = max(prevF*(0.88 + 0.10*uSwirl), srcF*win);
 
   } else if(uMode == 21){
-    // Dither — 1-bit Bayer print: ink on paper, retro-web
+    // Dither → 1-bit Bayer print: ink on paper, retro-web
     float pxD = 120.0*uScale;
     vec2 gD = floor(vec2(uv.x*aspect, uv.y)*pxD);
     vec2 suD = (gD + 0.5)/pxD; suD.x /= aspect;
@@ -2244,7 +2242,7 @@ vec3 background(vec2 uv, float t, float aspect){
     col = lumD > thrD ? vec3(0.92, 0.90, 0.86) : inkD;
 
   } else if(uMode == 22){
-    // ASCII — terminal mosaic: glyph-like marks whose density follows luminance
+    // ASCII → terminal mosaic: glyph-like marks whose density follows luminance
     float pxA = 64.0*uScale;
     vec2 gA = floor(vec2(uv.x*aspect, uv.y)*pxA);
     vec2 cu = fract(vec2(uv.x*aspect, uv.y)*pxA) - 0.5;
@@ -2262,7 +2260,7 @@ vec3 background(vec2 uv, float t, float aspect){
     col *= 0.94 + 0.06*sin(uv.y*uRes.y*3.14159);
 
   } else if(uMode == 23){
-    // Twinspin — two copies of the artwork spinning in OPPOSITE directions,
+    // Twinspin → two copies of the artwork spinning in OPPOSITE directions,
     // blended into a psychedelic moire
     vec2 cT = uv - 0.5; cT.x *= aspect;
     float rT = length(cT);
@@ -2346,8 +2344,8 @@ void main(){
       vec3 art;
 
       if(uDiscFx == 1){
-        // Explode — one continuous 3D blast: the image bulges outward and
-        // splits chromatically on the kick. No cells, no rings — the spatial
+        // Explode → one continuous 3D blast: the image bulges outward and
+        // splits chromatically on the kick. No cells, no rings → the spatial
         // variation is smooth noise, so the artwork never shows cut lines.
         float rr = length(rot);
         vec2 dirn = rr > 1e-4 ? rot/rr : vec2(1.0,0.0);
@@ -2375,7 +2373,7 @@ void main(){
     }
   }
 
-  // trails: previous frame slightly zoomed + rotated, decaying — visualizer echo
+  // trails: previous frame slightly zoomed + rotated, decaying → visualizer echo
   if(uTrail > 0.001){
     vec2 pz = vUv - 0.5;
     float rot = 0.004*uDir;
@@ -2629,7 +2627,7 @@ document.getElementById("fxModes").addEventListener("click", e=>{
   if(FX_NEEDS_FULL[st.mode] && st.renderMode === "loop" && !fxFullHintShown
      && exportDurationSec() > 61){
     fxFullHintShown = true;
-    showToast(FX_NEEDS_FULL[st.mode] + " rotates continuously — for a full song, set Export render to Full render so the motion never repeats.");
+    showToast(FX_NEEDS_FULL[st.mode] + " rotates continuously → for a full song, set Export render to Full render so the motion never repeats.");
   }
   if(!animId) draw();
 });
@@ -2659,11 +2657,11 @@ function updateBeatAvail(){
   fxBeatBtn.classList.toggle("dis", !beatAllowed);
   fxBeatBtn.title = beatAllowed
     ? "Visuals react to the kick of the playing song"
-    : "Beat sync works on clips up to 1 minute — pick 30s or 1m under Duration";
+    : "Beat sync works on clips up to 1 minute → pick 30s or 1m under Duration";
 }
 fxBeatBtn.addEventListener("click", ()=>{
   if(!beatAllowed){
-    showToast("Beat sync works on clips up to 1 minute — pick 30s or 1m under Duration.");
+    showToast("Beat sync works on clips up to 1 minute → pick 30s or 1m under Duration.");
     return;
   }
   st.beatSync = !st.beatSync;
@@ -2713,7 +2711,7 @@ function updateBeat(tSec){
     let lo = Math.max(1, Math.round(30/binHz)), hi = Math.round(130/binHz), sum = 0;
     for(let i=lo;i<=hi;i++) sum += freq[i];
     const bass = sum/((hi-lo+1)*255);
-    const e = bass*bass;                       // energy — squares punch the transients
+    const e = bass*bass;                       // energy → squares punch the transients
 
     // ── Patin adaptive-threshold beat detection ──
     // instant energy vs the mean of the last ~1 s, with the threshold factor
@@ -2817,7 +2815,7 @@ function active(){
 
 // ── DETERMINISTIC GPU EXPORT (WebCodecs) ────────────────────
 // Every frame is rendered at its exact timestamp and handed straight to the
-// GPU hardware H.264 encoder in quality mode — no real-time capture, no
+// GPU hardware H.264 encoder in quality mode → no real-time capture, no
 // readPixels, no intermediate encode generation. Zero dropped frames and the
 // export matches the preview. Falls back to the real-time capture pipeline
 // (liveExportRealtime) on browsers without WebCodecs H.264 support.
@@ -3132,7 +3130,7 @@ async function liveExport(){
     } else {
       console.error(e);
       showToast("Export failed: " + (e && e.message ? e.message : "unknown error"));
-      setStatus("", "Export error \u2014 try again.");
+      setStatus("", "Export error \u2192 try again.");
     }
   } finally {
     offlineFreq = null;
@@ -3142,7 +3140,7 @@ async function liveExport(){
 }
 
 // ── LIVE EXPORT ─────────────────────────────────────────────
-// The classic exporter loops one disc revolution — perfect for a static
+// The classic exporter loops one disc revolution → perfect for a static
 // background. Animated/beat-reactive scenes are not periodic, so this path
 // captures the scene in real time (1×) at full export resolution with the
 // audio muxed in, then transcodes to a high-quality H.264 MP4 in the browser.
@@ -3179,7 +3177,7 @@ async function liveExportRealtime(){
 
   ensureAudio();
   // Video-only capture. The audio is NOT re-captured live (that path stutters
-  // under load) — it is muxed afterwards straight from the original file, so
+  // under load) → it is muxed afterwards straight from the original file, so
   // the soundtrack in the MP4 is bit-perfect. Beat sync still reads the live
   // playback through the analyser during the render.
   const stream = comp.captureStream(30);
@@ -3200,8 +3198,8 @@ async function liveExportRealtime(){
   progressTrack.classList.remove("indeterminate");
   progressFill.style.width = "0%";
   setStatus("recording", fastLoop
-    ? "Fast loop render — ~" + Math.round(captureSeconds) + "s capture, then looped to full length\u2026"
-    : "Live rendering (effects) — 1× real time (beat sync needs the whole song)\u2026");
+    ? "Fast loop render → ~" + Math.round(captureSeconds) + "s capture, then looped to full length\u2026"
+    : "Live rendering (effects) → 1× real time (beat sync needs the whole song)\u2026");
 
   let cancelled = false, rafId = null, stopped = false;
   const tStart = performance.now();
@@ -3210,7 +3208,7 @@ async function liveExportRealtime(){
   // render loop and freezes frames in the recording.
   let wakeLock = null;
   try { if(navigator.wakeLock) wakeLock = await navigator.wakeLock.request("screen"); } catch(_){}
-  if(!fastLoop) showToast("Keep this tab visible and focused during the live render — background throttling freezes frames.");
+  if(!fastLoop) showToast("Keep this tab visible and focused during the live render → background throttling freezes frames.");
 
   function stopCapture(){
     if(stopped) return;
@@ -3253,7 +3251,7 @@ async function liveExportRealtime(){
     if(frameN % 3 === 0){
       try{ ctx.drawImage(comp, 0, 0, canvas.width, canvas.height); }catch(_){}
     }
-    // DOM writes are layout work — update the progress UI only ~4x/second
+    // DOM writes are layout work → update the progress UI only ~4x/second
     if(el - lastUi > 0.25){
       lastUi = el;
       const pct = Math.min(100, el/captureSeconds*100);
@@ -3301,7 +3299,7 @@ async function liveExportRealtime(){
       return cmd;
     }
     // The final MP4 is a stream-copy of the loop, so its size = song duration x
-    // loop bitrate — and everything lives inside wasm's ~2 GB memory. Cap the
+    // loop bitrate → and everything lives inside wasm's ~2 GB memory. Cap the
     // loop bitrate adaptively so full-length songs always fit: ~600 MB video
     // budget => up to 20 Mbps for short clips, ~15 Mbps at 5-6 min, less for
     // very long mixes (never below 4 Mbps).
@@ -3309,7 +3307,7 @@ async function liveExportRealtime(){
     if(fastLoop){
       // 1) Bake a seamless loop: crossfade the first XFADE seconds into the
       //    tail. The disc angle is identical on both layers (whole
-      //    revolutions), so only the background blends — invisibly.
+      //    revolutions), so only the background blends → invisibly.
       const gop = Math.round(segLen * 30);
       const chain =
         "[0:v]fps=30,split[s0][s1];" +
@@ -3335,7 +3333,7 @@ async function liveExportRealtime(){
       let encoded = false;
       if(isMp4){
         // Native H.264 capture: stream-copy the video and mux the ORIGINAL
-        // audio file — seconds, not minutes, and the sound is bit-perfect.
+        // audio file → seconds, not minutes, and the sound is bit-perfect.
         try { await ff.exec(buildCmd(true)); encoded = true; }
         catch(_) { /* fall through to transcode */ }
       }
@@ -3356,7 +3354,7 @@ async function liveExportRealtime(){
     } else {
       console.error(e);
       showToast("Export failed: " + (e && e.message ? e.message : "unknown error"));
-      setStatus("", "Export error — try again.");
+      setStatus("", "Export error → try again.");
     }
   } finally {
     exportAbort = null;
@@ -3367,26 +3365,85 @@ async function liveExportRealtime(){
 return { canvas: glc, active, render, setArtwork, ensureAudio, liveExport, updateBeatAvail };
 })();
 
-// Rotating hints in the header — the things worth knowing while you work
+// ── Top bar: general hints rotate; notable picks show what they pair with ──
 (function(){
   const el = document.getElementById("fxHints");
   if(!el) return;
-  const hints = [
-    "Recording? Keep this tab visible and focused — background throttling freezes frames.",
-    "Beat sync works on clips up to 1 minute — pick 30s or 1m under Duration.",
-    "Export render: Fast loop finishes in ~1 min for any song; Full render draws every frame, so slow rotations complete.",
-    "Click or drag on the waveform to jump anywhere in the song.",
-    "Each effect has its own defaults — the ↺ reset next to Effect settings brings them back."
+
+  const GENERAL = [
+    "Recording? Keep this tab visible and focused \u2192 background throttling freezes frames.",
+    "Beat sync works on clips up to 1 minute \u2192 pick 30s or 1m under Duration for best performance.",
+    "Effects marked FULL rotate or evolve continuously \u2192 on full songs set Export render to Full render.",
+    "Fast loop exports any song length in about a minute; Full render draws every frame on the GPU.",
+    "Click or drag the waveform to jump anywhere in the song.",
+    "Each effect has its own defaults \u2192 the \u21ba reset next to Effect settings brings them back."
   ];
-  let i = 0;
-  setInterval(()=>{
+  // pairing tips: not what the effect does, but what it works well with
+  const PAIR = {
+    "-1":"Off \u2192 clean solid stage. Pair Disc + Beat sync for a kick-driven promo.",
+    "0":"Melt pairs with Card at low Speed for moody covers \u2192 add a touch of Aberration.",
+    "1":"Palette flow pairs with edited swatches \u2192 repaint it to match the release colors.",
+    "2":"Vortex pairs with Trails 0.3. Full song \u2192 Full render, so the spin completes.",
+    "3":"Ripple pairs with Card. Full song \u2192 Full render, the slow rotation needs the whole track.",
+    "4":"Bloom pairs with Card for atmospheric promos \u2192 raise Swirl so the inks fuse.",
+    "5":"Nebula pairs behind Card or Disc \u2192 add Pulse for a slow breathing backdrop.",
+    "6":"Tunnel pairs with Aberration. Swirl above 0 rotates \u2192 on full songs use Full render.",
+    "7":"Kaleido pairs with Trails 0.2. Full song \u2192 Full render for uninterrupted rotation.",
+    "8":"Glitch pairs with Beat sync on short clips \u2192 it tears on the kick. Add slight Aberration.",
+    "9":"Spectrum pairs with Artwork off + high Trails \u2192 needs the song playing.",
+    "10":"Droste pairs with high Trails \u2192 hypnotic infinite fall into the artwork.",
+    "11":"Warp pairs with high Streak + Trails \u2192 Reverse pulls the stars inward.",
+    "12":"Liquid pairs with high Warp \u2192 molten backdrop behind a Card.",
+    "13":"Reactor pairs with Trails + Reverse \u2192 the vortex turns into an intake.",
+    "14":"Echo pairs best behind Card \u2192 darken it with Streak so the card pops.",
+    "15":"Datamosh pairs with Aberration for extra corruption. Long songs \u2192 Full render.",
+    "16":"Feedback pairs with Trails \u2192 try Reverse for an outward blast. Long songs \u2192 Full render.",
+    "17":"VHS pairs great with Aberration around 0.2\u20130.3 \u2192 the full tape look.",
+    "18":"Burn pairs with warm artworks \u2192 stack slight Aberration for retro film.",
+    "19":"Halftone pairs with Card \u2192 editorial print promo at low Speed.",
+    "20":"Slices pairs with Beat sync on short clips \u2192 Scale sets the bar count.",
+    "21":"Dither pairs with low Speed \u2192 Swirl tints the ink from your palette.",
+    "22":"ASCII pairs with Swirl up \u2192 moves from terminal green to palette ink.",
+    "23":"Twinspin pairs with Reverse + high Swirl \u2192 double-spin moire. Long songs \u2192 Full render."
+  };
+
+  let gi = 0, hold = null, rot = null;
+  function show(msg, dim){
     el.style.opacity = "0";
-    setTimeout(()=>{
-      i = (i + 1) % hints.length;
-      el.textContent = hints[i];
-      el.style.opacity = "1";
-    }, 400);
-  }, 7000);
+    setTimeout(()=>{ el.textContent = msg; el.style.opacity = dim ? "0.9" : "1"; }, 250);
+  }
+  function rotate(){
+    rot = setInterval(()=>{
+      gi = (gi + 1) % GENERAL.length;
+      show(GENERAL[gi], true);
+    }, 9000);
+  }
+  function tip(msg){
+    if(!msg) return;
+    clearInterval(rot); clearTimeout(hold);
+    show(msg);
+    hold = setTimeout(rotate, 16000);
+  }
+  show(GENERAL[0], true);
+  rotate();
+
+  document.getElementById("fxModes").addEventListener("click", e=>{
+    const b = e.target.closest("button"); if(!b) return;
+    tip(PAIR[b.dataset.m]);
+  });
+  document.getElementById("fxArt").addEventListener("click", e=>{
+    const b = e.target.closest("button"); if(!b) return;
+    if(b.dataset.a === "card") tip("Card pairs best with Echo behind it \u2192 or Nebula/Bloom for atmosphere.");
+  });
+  document.getElementById("fxBeat").addEventListener("click", ()=>{
+    if(st.beatSync) tip("Beat sync on \u2192 clips up to 1 minute, tab focused while recording, kick does the rest.");
+  });
+  document.getElementById("fxRender").addEventListener("click", e=>{
+    const b = e.target.closest("button"); if(!b) return;
+    tip(b.dataset.r === "loop"
+      ? "Fast loop \u2192 any song length exports in about a minute."
+      : "Full render \u2192 every frame drawn on the GPU; FULL-marked effects complete their motion.");
+  });
 })();
 
 // Scroll wheel over the video forwards to the menu, so the preview never moves
