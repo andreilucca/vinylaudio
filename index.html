@@ -740,7 +740,7 @@
 </main>
 
 <footer>
-  <div class="footer-note">WEB v4.6 · 2026-08-19 · beat sync removed · Pulse dial is the rhythm control · Spectrum stays audio-live</div>
+  <div class="footer-note">WEB v4.7 · 2026-08-19 · Pulse reworked: whole scene breathes (background + disc + card), faster rhythm, stronger swell</div>
 </footer>
 
 <div class="toast" id="toast"></div>
@@ -1902,7 +1902,7 @@ float specAt(float x){
 }
 
 vec3 background(vec2 uv, float t, float aspect){
-  float pl = uPulse * pow(0.5 + 0.5*sin(uTime*(1.2 + uSpeed*0.8)), 3.0);
+  float pl = uPulse * pow(0.5 + 0.5*sin(uTime*(2.2 + uSpeed*2.3)), 3.0);
   float w = uWarp*(1.0 + uBeatBg*0.8 + pl*1.3);
   float wx = fbm(vec2(uv.x*3.2*uScale,       uv.y*0.7*uScale + t*0.16)) - 0.5;
   float wy = fbm(vec2(uv.x*2.1*uScale + 7.3, uv.y*0.45*uScale - t*0.11)) - 0.5;
@@ -2275,7 +2275,7 @@ vec3 background(vec2 uv, float t, float aspect){
     col = mix(col, 1.0 - (1.0-A)*(1.0-B), uStreak*0.45);
   }
 
-  col *= 1.0 + uBeatBg*0.15 + pl*0.20;   // pulses: routed beat and/or the internal Pulse rhythm
+  col *= 1.0 + uBeatBg*0.15 + pl*0.35;   // pulses: routed beat and/or the internal Pulse rhythm
 
   vec2 dd = uv - 0.5;
   col *= 1.0 - dot(dd,dd)*0.50;
@@ -2285,13 +2285,14 @@ vec3 background(vec2 uv, float t, float aspect){
 void main(){
   float aspect = uRes.x/uRes.y;
   float t = uTime*uSpeed;
+  float plM = uPulse * pow(0.5 + 0.5*sin(uTime*(2.2 + uSpeed*2.3)), 3.0);
   vec3 col = background(vUv, t, aspect);
 
   if(uArt == 2){
     // ── Poster card: the square artwork centred on the frame, no rotation ──
     float kick = uBeat;
     vec2 q = (gl_FragCoord.xy - 0.5*uRes)/min(uRes.x, uRes.y);
-    float h = uDiscR*(1.0 + kick*0.03);                      // gentle size breath
+    float h = uDiscR*(1.0 + kick*0.03 + plM*0.022);          // gentle size breath (Pulse too)
 
     // soft rectangular drop shadow
     vec2 dq = abs(q - vec2(0.0,-0.015)) - vec2(h);
@@ -2309,7 +2310,7 @@ void main(){
       art.r = texture2D(uTex, clamp(tuv + vec2(ca,0.0), 0.0, 1.0)).r;
       art.g = texture2D(uTex, tuv).g;
       art.b = texture2D(uTex, clamp(tuv - vec2(ca,0.0), 0.0, 1.0)).b;
-      art *= 1.0 + kick*0.10;                                 // lighting pulse
+      art *= 1.0 + kick*0.10 + plM*0.07;                                 // lighting pulse
       float ed = max(abs(loc.x), abs(loc.y));
       art += vec3(1.0, 0.98, 0.94) * smoothstep(0.985, 1.0, ed) * (0.05 + 0.30*kick);
       float aa = smoothstep(h + 0.0022, h - 0.0022, box);
@@ -2320,7 +2321,7 @@ void main(){
     float kick = uBeat;                                      // beat sync ON + disc ON -> the disc explodes on the kick
     vec2 q = (gl_FragCoord.xy - 0.5*uRes)/min(uRes.x, uRes.y);
     float r = length(q);
-    float R = uDiscR*(1.0 + kick*0.025);                     // gentle size breath
+    float R = uDiscR*(1.0 + kick*0.025 + plM*0.022);         // gentle size breath (Pulse too)
 
     float sh = smoothstep(R*1.30, R*0.92, length(q - vec2(0.0,-0.018)));
     col = mix(col, col*0.30, sh*0.75);
@@ -2363,7 +2364,7 @@ void main(){
       float hole = smoothstep(R*0.032, R*0.024, r);
       art = mix(art, vec3(0.045), hole);
       float ring = smoothstep(0.0045, 0.0, abs(r - R + 0.003));
-      art += ring*(0.12 + 0.22*kick);
+      art += ring*(0.12 + 0.22*kick + 0.18*plM);
 
       float aa2 = smoothstep(R + 0.0025, R - 0.0025, r);
       col = mix(col, art, aa2);
