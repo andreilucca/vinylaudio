@@ -634,25 +634,25 @@
 
       <div class="fx-lbl">Export render <b id="fxvRender" style="text-transform:none">Fast loop</b></div>
       <div class="fx-grid2" id="fxRender">
-        <button class="fx-btn on" data-r="loop" title="Captures ~15s and loops it seamlessly — any song length exports in about a minute. Slow-evolving motion (e.g. Ripple's rotation) repeats instead of progressing.">Fast loop</button>
-        <button class="fx-btn" data-r="full" title="Renders the entire duration at 1× real time — every second is unique, slow rotations complete fully. A 10-min song takes 10 min.">Full 1×</button>
+        <button class="fx-btn on" data-r="loop" title="Renders ~15s once and loops it seamlessly — any song length exports in about a minute. Slow-evolving motion (e.g. Ripple's rotation) repeats instead of progressing.">Fast loop</button>
+        <button class="fx-btn" data-r="full" title="Renders every frame of the whole song deterministically on the GPU — faster than real time, and slow rotations complete fully across the entire track.">Full render</button>
       </div>
 
       <div class="fx-lbl">Background effect</div>
       <div class="fx-grid2" id="fxModes">
         <button class="fx-btn on" data-m="-1" style="grid-column:1/-1">Off</button>
         <button class="fx-btn" data-m="0">Melt</button>
-        <button class="fx-btn" data-m="2" title="Continuous global rotation (~206°/loop) — on a full song use Export render: Full 1× so the artwork keeps turning instead of repeating">Vortex <span class="fx-badge">1×</span></button>
-        <button class="fx-btn" data-m="3" title="Very slow continuous rotation — on a full song use Export render: Full 1× so text/details in the artwork travel the whole circle">Ripple <span class="fx-badge">1×</span></button>
-        <button class="fx-btn" data-m="6" title="With Swirl > 0 the tunnel also rotates slowly — for that, use Export render: Full 1× on full songs">Tunnel <span class="fx-badge">1×</span></button>
-        <button class="fx-btn" data-m="7" title="Segments rotate continuously — on a full song use Export render: Full 1× for uninterrupted rotation">Kaleido <span class="fx-badge">1×</span></button>
+        <button class="fx-btn" data-m="2" title="Continuous global rotation — on a full song use Export render: Full render so the artwork keeps turning instead of repeating">Vortex <span class="fx-badge">FULL</span></button>
+        <button class="fx-btn" data-m="3" title="Very slow continuous rotation — on a full song use Export render: Full render so text/details travel the whole circle">Ripple <span class="fx-badge">FULL</span></button>
+        <button class="fx-btn" data-m="6" title="With Swirl > 0 the tunnel also rotates slowly — for that, use Export render: Full render on full songs">Tunnel <span class="fx-badge">FULL</span></button>
+        <button class="fx-btn" data-m="7" title="Segments rotate continuously — on a full song use Export render: Full render for uninterrupted rotation">Kaleido <span class="fx-badge">FULL</span></button>
         <button class="fx-btn" data-m="8">Glitch</button>
         <button class="fx-btn" data-m="10">Droste</button>
         <button class="fx-btn" data-m="12">Liquid</button>
         <button class="fx-btn" data-m="1">Palette flow</button>
         <button class="fx-btn" data-m="4">Bloom</button>
         <button class="fx-btn" data-m="5">Nebula</button>
-        <button class="fx-btn" data-m="9" title="Follows the music itself — Fast loop would repeat only the first seconds of bars; on a full song use Export render: Full 1×">Spectrum <span class="fx-badge">1×</span></button>
+        <button class="fx-btn" data-m="9" title="Follows the music itself — Fast loop would repeat only the first seconds of bars; on a full song use Export render: Full render">Spectrum <span class="fx-badge">FULL</span></button>
         <button class="fx-btn" data-m="11">Warp</button>
         <button class="fx-btn" data-m="13">Reactor</button>
       </div>
@@ -724,7 +724,7 @@
 
 <footer>
   <div class="footer-note">Renders 100% in your browser · 1080 · MP4 H.264 · any song length · no watermark · no upload</div>
-  <div class="footer-note" style="opacity:.7;margin-top:.25rem">WEB v3.0 · 2026-07-27 · Full HD 1080p · effects engine (WebGL)</div>
+  <div class="footer-note" style="opacity:.7;margin-top:.25rem">WEB v4.2 · 2026-08-19 · GPU deterministic export · 60 fps · full-song safe · fast-loop / full render · effects engine (WebGL)</div>
   <div class="footer-tip"><strong>Tip:</strong> Square photos give the cleanest disc look.</div>
 </footer>
 
@@ -1572,7 +1572,10 @@ async function startRecording() {
       "-filter_complex", chain, "-map", last,
       "-frames:v", String(segFrames), "-r", String(fps),
       "-c:v", "libx264", "-pix_fmt", "yuv420p",
-      "-preset", "veryfast", "-crf", "20", "-g", String(segFrames),
+      "-preset", "veryfast", "-crf", "20",
+      "-maxrate", Math.max(4000, Math.min(20000, Math.floor(600 * 8192 / Math.max(1, duration)))) + "k",
+      "-bufsize", Math.max(8000, Math.min(40000, Math.floor(1200 * 8192 / Math.max(1, duration)))) + "k",
+      "-g", String(segFrames),
       "seg.mp4"
     );
     await ff.exec(segCmd);
@@ -2132,7 +2135,7 @@ void main(){
         if(rr0 > 1e-4) dLoc *= rrS/rr0;
       }
 
-      float ca2 = cos(-uAngle), sa2 = sin(-uAngle);
+      float ca2 = cos(uAngle), sa2 = sin(uAngle);
       vec2 rot = vec2(dLoc.x*ca2 - dLoc.y*sa2, dLoc.x*sa2 + dLoc.y*ca2);
       vec3 art;
 
@@ -2382,6 +2385,12 @@ function applyModeDefaults(m){
   const d = MODE_DEFAULTS[String(m)];
   for(const k of ["speed","warp","streak","swirl","scale","trail"]){ st[k]=d[k]; syncSlider(k,d[k]); }
 }
+document.getElementById("fxRender").addEventListener("click", e=>{
+  const b = e.target.closest("button"); if(!b) return;
+  st.renderMode = b.dataset.r;
+  document.querySelectorAll("#fxRender button").forEach(x=>x.classList.toggle("on", x===b));
+  document.getElementById("fxvRender").textContent = st.renderMode === "loop" ? "Fast loop" : "Full render";
+});
 const FX_NEEDS_FULL = {2:"Vortex",3:"Ripple",6:"Tunnel",7:"Kaleido",9:"Spectrum"};
 let fxFullHintShown = false;
 document.getElementById("fxModes").addEventListener("click", e=>{
@@ -2393,7 +2402,7 @@ document.getElementById("fxModes").addEventListener("click", e=>{
   if(FX_NEEDS_FULL[st.mode] && st.renderMode === "loop" && !fxFullHintShown
      && exportDurationSec() > 61){
     fxFullHintShown = true;
-    showToast(FX_NEEDS_FULL[st.mode] + " rotates continuously — for a full song, set Export render to Full 1× so the motion never repeats.");
+    showToast(FX_NEEDS_FULL[st.mode] + " rotates continuously — for a full song, set Export render to Full render so the motion never repeats.");
   }
   if(!animId) draw();
 });
@@ -2437,12 +2446,6 @@ fxBeatBtn.addEventListener("click", ()=>{
   if(st.beatSync) ensureAudio();
 });
 updateBeatAvail();
-document.getElementById("fxRender").addEventListener("click", e=>{
-  const b = e.target.closest("button"); if(!b) return;
-  st.renderMode = b.dataset.r;
-  document.querySelectorAll("#fxRender button").forEach(x=>x.classList.toggle("on", x===b));
-  document.getElementById("fxvRender").textContent = st.renderMode === "loop" ? "Fast loop" : "Full 1×";
-});
 document.getElementById("fxRstFx").addEventListener("click", ()=>applyModeDefaults(st.mode));
 document.getElementById("fxRstPal").addEventListener("click", ()=>{
   applyPalette(basePal, true);
@@ -2469,13 +2472,16 @@ function ensureAudio(){
     fxA.analyser.connect(fxA.ctx.destination);
   } catch(e){ console.warn("FX audio graph:", e); }
 }
+let offlineFreq = null, offlineSR = 48000; // set per-frame during the offline export
 function updateBeat(tSec){
-  const playing = fxA.analyser && !audioEl.paused;
+  const playing = (offlineFreq !== null) || (fxA.analyser && !audioEl.paused);
   if(playing){
-    fxA.analyser.getByteFrequencyData(fxA.freq);
-    const binHz = fxA.ctx.sampleRate/2048;
+    let freq, sr;
+    if(offlineFreq !== null){ freq = offlineFreq; sr = offlineSR; }
+    else { fxA.analyser.getByteFrequencyData(fxA.freq); freq = fxA.freq; sr = fxA.ctx.sampleRate; }
+    const binHz = sr/2048;
     let lo = Math.max(1, Math.round(30/binHz)), hi = Math.round(130/binHz), sum = 0;
-    for(let i=lo;i<=hi;i++) sum += fxA.freq[i];
+    for(let i=lo;i<=hi;i++) sum += freq[i];
     const bass = sum/((hi-lo+1)*255);
     bassAvg = bassAvg*0.985 + bass*0.015;
     const target = Math.min(1, Math.max(0, (bass/(bassAvg+0.02) - 1.0)*1.7));
@@ -2486,7 +2492,7 @@ function updateBeat(tSec){
       const f1 = fMin*Math.pow(fMax/fMin, (b+1)/32);
       let i0 = Math.max(1, Math.round(f0/binHz)), i1 = Math.max(i0, Math.round(f1/binHz));
       let sm = 0;
-      for(let i=i0;i<=i1;i++) sm += fxA.freq[i];
+      for(let i=i0;i<=i1;i++) sm += freq[i];
       const v = sm/((i1-i0+1)*255);
       specMax[b] = Math.max(v, specMax[b]*0.995, 0.03);
       const n = Math.pow(Math.min(1, v/specMax[b]), 1.2);
@@ -2555,12 +2561,338 @@ function active(){
   return S.imageLoaded && (st.mode >= 0 || st.beatSync || !st.disc);
 }
 
+// ── DETERMINISTIC GPU EXPORT (WebCodecs) ────────────────────
+// Every frame is rendered at its exact timestamp and handed straight to the
+// GPU hardware H.264 encoder in quality mode — no real-time capture, no
+// readPixels, no intermediate encode generation. Zero dropped frames and the
+// export matches the preview. Falls back to the real-time capture pipeline
+// (liveExportRealtime) on browsers without WebCodecs H.264 support.
+
+function fftInPlace(re, im){
+  const n = re.length;
+  for(let i = 1, j = 0; i < n; i++){
+    let bit = n >> 1;
+    for(; j & bit; bit >>= 1) j ^= bit;
+    j |= bit;
+    if(i < j){
+      let t = re[i]; re[i] = re[j]; re[j] = t;
+      t = im[i]; im[i] = im[j]; im[j] = t;
+    }
+  }
+  for(let len = 2; len <= n; len <<= 1){
+    const ang = -2 * Math.PI / len;
+    const wr = Math.cos(ang), wi = Math.sin(ang);
+    const half = len >> 1;
+    for(let i = 0; i < n; i += len){
+      let cwr = 1, cwi = 0;
+      for(let k = 0; k < half; k++){
+        const ur = re[i+k], ui = im[i+k];
+        const vr = re[i+k+half]*cwr - im[i+k+half]*cwi;
+        const vi = re[i+k+half]*cwi + im[i+k+half]*cwr;
+        re[i+k] = ur + vr; im[i+k] = ui + vi;
+        re[i+k+half] = ur - vr; im[i+k+half] = ui - vi;
+        const nwr = cwr*wr - cwi*wi; cwi = cwr*wi + cwi*wr; cwr = nwr;
+      }
+    }
+  }
+}
+
+// Analyser-identical offline spectrum per simulation frame (Blackman window,
+// |X|/N magnitude, 0.5 smoothing, -100..-30 dB byte mapping).
+async function buildOfflineFreq(simFps, seconds, startSec, isCancelled){
+  let dctx = null;
+  try{
+    dctx = new (window.AudioContext || window.webkitAudioContext)();
+    const ab  = await audioFileRef.arrayBuffer();
+    const buf = await dctx.decodeAudioData(ab.slice(0));
+    const sr  = buf.sampleRate;
+    offlineSR = sr;
+    const nCh = buf.numberOfChannels, len = buf.length;
+    const mono = new Float32Array(len);
+    for(let c = 0; c < nCh; c++){
+      const d = buf.getChannelData(c);
+      for(let i = 0; i < len; i++) mono[i] += d[i] / nCh;
+    }
+    const N = 2048, bins = N >> 1;
+    const win = new Float32Array(N);
+    for(let i = 0; i < N; i++)
+      win[i] = 0.42 - 0.5*Math.cos(2*Math.PI*i/N) + 0.08*Math.cos(4*Math.PI*i/N);
+    const total  = Math.ceil(seconds * simFps) + 2;
+    const frames = new Array(total);
+    const smooth = new Float32Array(bins);
+    const re = new Float32Array(N), im = new Float32Array(N);
+    for(let f = 0; f < total; f++){
+      const end = Math.floor((startSec + f/simFps) * sr);
+      for(let i = 0; i < N; i++){
+        const idx = end - N + i;
+        re[i] = (idx >= 0 && idx < len ? mono[idx] : 0) * win[i];
+        im[i] = 0;
+      }
+      fftInPlace(re, im);
+      const out = new Uint8Array(bins);
+      for(let b = 0; b < bins; b++){
+        const mag = Math.hypot(re[b], im[b]) / N;
+        smooth[b] = 0.5*smooth[b] + 0.5*mag;
+        const db = 20 * Math.log10(smooth[b] + 1e-20);
+        out[b] = Math.max(0, Math.min(255, Math.round((db + 100) / 70 * 255)));
+      }
+      frames[f] = out;
+      if((f & 31) === 0){
+        if(isCancelled && isCancelled()) return null;
+        await new Promise(r => setTimeout(r, 0));
+      }
+    }
+    return frames;
+  } catch(e){
+    console.warn("Offline audio analysis failed - synthetic spectrum fallback:", e);
+    return null;
+  } finally {
+    try{ if(dctx) dctx.close(); }catch(_){}
+  }
+}
+
+function resetFeedback(){
+  for(let i = 0; i < 2; i++){
+    if(!fbo[i]) continue;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo[i]);
+    gl.clearColor(0,0,0,1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+}
+
+async function liveExport(){
+  const duration   = S.audioLoaded ? (S.trimEnd - S.trimStart) * S.audioDuration : S.silentDuration;
+  const audioStart = S.audioLoaded ? S.trimStart * S.audioDuration : 0;
+  const hasAudio   = S.audioLoaded && !!audioFileRef;
+  const W = evenUp(S.canvasW), H = evenUp(S.canvasH);
+
+  const XFADE   = 1.0;
+  const SIM_FPS = 60;
+  const fastLoopPossible = !st.beatSync && st.renderMode !== "full";
+  const OUT_FPS = 60;                 // GPU encoder: 60 fps everywhere = preview-smooth motion
+  const STEP    = SIM_FPS / OUT_FPS;
+
+  // The final MP4 is a stream-copy of the loop: size = duration x bitrate,
+  // inside wasm's ~2 GB memory. Budget ~1 GB of video and cap the encoder.
+  const capKbps = Math.max(6000, Math.min(28000, Math.floor(1000 * 8192 / Math.max(1, duration))));
+
+  // Probe the GPU encoder FIRST; if unavailable, use the realtime pipeline.
+  let wcCfg = null;
+  if (window.VideoEncoder && window.VideoFrame) {
+    const br = Math.min(45e6, Math.max(8e6, capKbps * 1000));
+    for (const codec of ["avc1.64002a","avc1.640028","avc1.4d002a","avc1.42e02a"]) {
+      try {
+        const probe = await VideoEncoder.isConfigSupported({
+          codec, width: W, height: H, bitrate: br, framerate: OUT_FPS,
+          avc: { format: "annexb" }
+        });
+        if (probe && probe.supported) {
+          wcCfg = { codec, width: W, height: H, bitrate: br, framerate: OUT_FPS,
+                    avc: { format: "annexb" }, bitrateMode: "variable", latencyMode: "quality" };
+          break;
+        }
+      } catch(_){}
+    }
+  }
+  console.log("[vinylaudio export] strategy:", wcCfg ? ("webcodecs " + wcCfg.codec) : "realtime-capture");
+  if (!wcCfg) return liveExportRealtime();
+
+  stopPreview();
+  btnDownload.style.display = "none";
+  if (lastBlobUrl) { URL.revokeObjectURL(lastBlobUrl); lastBlobUrl = null; }
+  lastBlob = null;
+
+  let effRpm = S.rpm, revFrames = OUT_FPS * 12;
+  if (S.rpm > 0) {
+    revFrames = Math.max(1, Math.round(OUT_FPS * 60 / S.rpm));
+    effRpm    = OUT_FPS * 60 / revFrames;
+  }
+  const revSec        = S.rpm > 0 ? 60 / effRpm : 12;
+  const segFramesLoop = revFrames * Math.max(1, Math.ceil(12 / revSec));
+  const segLen        = segFramesLoop / OUT_FPS;
+  const fastLoop      = fastLoopPossible && (duration > segLen + XFADE + 2);
+  const outFrames     = fastLoop
+    ? segFramesLoop + Math.round(XFADE * OUT_FPS)
+    : Math.max(1, Math.round(duration * OUT_FPS));
+  const captureSeconds = outFrames / OUT_FPS;
+
+  S.isRecording = true;
+  btnRecord.style.display = "none";
+  btnStop.style.display   = "flex";
+  progressWrap.classList.add("visible");
+  progressTrack.classList.remove("indeterminate");
+  progressFill.style.width = "0%";
+  setStatus("recording", fastLoop
+    ? "GPU render - " + Math.round(captureSeconds) + "s seamless loop, then extended to full length\u2026"
+    : "GPU render - every frame computed exactly, zero dropped frames\u2026");
+
+  let cancelled = false;
+  exportAbort = { abort: () => {
+    cancelled = true;
+    try { if (ffmpegInstance) ffmpegInstance.terminate(); } catch (_) {}
+    ffmpegInstance = null; ffmpegLoading = null;
+  }};
+
+  const yieldQ = [];
+  const yieldCh = new MessageChannel();
+  yieldCh.port1.onmessage = () => { const r = yieldQ.shift(); if (r) r(); };
+  const tick = () => new Promise(res => { yieldQ.push(res); yieldCh.port2.postMessage(0); });
+
+  const tStart = performance.now();
+  let phase = "render";
+  try {
+    progressLabel.textContent = "Preparing engine\u2026";
+    const ff = await getFFmpeg(() => {
+      progressLabel.textContent = "Downloading engine (first time only)\u2026";
+    });
+    if (cancelled) throw Object.assign(new Error("aborted"), { name: "AbortError" });
+    ff.on("progress", ({ progress }) => {
+      if (phase !== "final") return;
+      const p = Math.min(99, Math.round(Math.max(0, Math.min(1, progress || 0)) * 100));
+      progressTrack.classList.remove("indeterminate");
+      progressFill.style.width = p + "%";
+      progressLabel.textContent = "Finalising\u2026 " + p + "%";
+    });
+
+    let freqFrames = null;
+    if (hasAudio) {
+      progressLabel.textContent = "Analysing audio\u2026";
+      await tick();
+      freqFrames = await buildOfflineFreq(SIM_FPS, captureSeconds, audioStart, () => cancelled);
+      if (cancelled) throw Object.assign(new Error("aborted"), { name: "AbortError" });
+    }
+    resetFeedback();
+    if (hasAudio) await ff.writeFile("audio_in", new Uint8Array(await audioFileRef.arrayBuffer()));
+
+    const comp = document.createElement("canvas");
+    comp.width = W; comp.height = H;
+    const cc = comp.getContext("2d");
+    const parts = [];
+    let encErr = null;
+    const enc = new VideoEncoder({
+      output: (chunk) => { const u = new Uint8Array(chunk.byteLength); chunk.copyTo(u); parts.push(u); },
+      error:  (e) => { encErr = e; }
+    });
+    enc.configure(wcCfg);
+
+    // The loop crossfade is baked AT RENDER TIME (head frames blended over
+    // the tail): exactly ONE encode, and the loop file is final.
+    const xfadeFrames = fastLoop ? Math.round(XFADE * OUT_FPS) : 0;
+    const headBmps = new Array(xfadeFrames);
+    let outIdx = 0, lastUi = -1;
+    for (let f = 0; f < outFrames; f++) {
+      for (let s = 0; s < STEP; s++) {
+        const simIdx = f * STEP + s;
+        const t = simIdx / SIM_FPS;
+        offlineFreq = freqFrames ? freqFrames[Math.min(simIdx, freqFrames.length - 1)] : null;
+        render(W, H, t * effRpm * 6, t);
+      }
+      offlineFreq = null;
+
+      if (fastLoop && f < xfadeFrames) headBmps[f] = await createImageBitmap(glc);
+      if (!fastLoop || f >= xfadeFrames) {
+        cc.globalAlpha = 1;
+        cc.drawImage(glc, 0, 0);
+        const bi = fastLoop ? f - segFramesLoop : -1;
+        if (bi >= 0 && headBmps[bi]) {
+          cc.globalAlpha = (bi + 1) / xfadeFrames;
+          cc.drawImage(headBmps[bi], 0, 0);
+          cc.globalAlpha = 1;
+        }
+        if (S.fgImage) {
+          const iw = S.fgImage.naturalWidth || S.fgImage.width;
+          const ih = S.fgImage.naturalHeight || S.fgImage.height;
+          const sc = Math.max(W/iw, H/ih);
+          cc.drawImage(S.fgImage, (W-iw*sc)/2, (H-ih*sc)/2, iw*sc, ih*sc);
+        }
+        const vf = new VideoFrame(comp, {
+          timestamp: Math.round(outIdx * 1e6 / OUT_FPS),
+          duration:  Math.round(1e6 / OUT_FPS)
+        });
+        enc.encode(vf, { keyFrame: outIdx % (OUT_FPS * 2) === 0 });
+        vf.close();
+        outIdx++;
+        while (enc.encodeQueueSize > 8) { if (encErr) throw encErr; await tick(); }
+      }
+
+      if (f % 10 === 0) { try { ctx.drawImage(glc, 0, 0, canvas.width, canvas.height); } catch(_){} }
+      const el = (performance.now() - tStart) / 1000;
+      if (el - lastUi > 0.25) {
+        lastUi = el;
+        const pct = Math.min(99, Math.round(f / outFrames * 100));
+        progressFill.style.width = pct + "%";
+        progressLabel.textContent = "Rendering frame " + (f + 1) + " / " + outFrames + " (" + pct + "%, GPU encode)";
+      }
+      if (encErr) throw encErr;
+      if (cancelled) { try{ enc.close(); }catch(_){} throw Object.assign(new Error("aborted"), { name: "AbortError" }); }
+      await tick();
+    }
+    progressLabel.textContent = "Flushing encoder\u2026";
+    await enc.flush();
+    try { enc.close(); } catch(_){}
+    for (const b of headBmps) { try { if (b) b.close(); } catch(_){} }
+    if (encErr) throw encErr;
+
+    let total = 0; for (const p of parts) total += p.length;
+    const h264 = new Uint8Array(total);
+    let off = 0; for (const p of parts) { h264.set(p, off); off += p.length; }
+    parts.length = 0;
+    await ff.writeFile("video.h264", h264);
+    await ff.exec(["-y","-framerate",String(OUT_FPS),"-i","video.h264","-c:v","copy","video.mp4"]);
+    try { await ff.deleteFile("video.h264"); } catch(_){}
+    if (cancelled) throw Object.assign(new Error("aborted"), { name: "AbortError" });
+
+    phase = "final";
+    progressTrack.classList.add("indeterminate");
+    progressLabel.textContent = "Assembling MP4\u2026";
+    if (fastLoop) {
+      // loop crossfade already baked in -> pure stream-copy loop + audio mux
+      const cmd = ["-y","-stream_loop","-1","-i","video.mp4"];
+      if (hasAudio) cmd.push("-ss", String(audioStart), "-i", "audio_in");
+      cmd.push("-map","0:v","-t",String(duration),"-c:v","copy");
+      if (hasAudio) cmd.push("-map","1:a","-c:a","aac","-b:a","320k","-shortest");
+      cmd.push("-movflags","+faststart","out.mp4");
+      await ff.exec(cmd);
+    } else {
+      const cmd = ["-y","-i","video.mp4"];
+      if (hasAudio) cmd.push("-ss", String(audioStart), "-i", "audio_in");
+      cmd.push("-map","0:v","-c:v","copy","-t",String(duration));
+      if (hasAudio) cmd.push("-map","1:a","-c:a","aac","-b:a","320k","-shortest");
+      cmd.push("-movflags","+faststart","out.mp4");
+      await ff.exec(cmd);
+    }
+    for (const n of ["video.mp4","audio_in"]) { try { await ff.deleteFile(n); } catch(_){} }
+    if (cancelled) throw Object.assign(new Error("aborted"), { name: "AbortError" });
+
+    const data = await ff.readFile("out.mp4");
+    const blob = new Blob([data.buffer], { type: "video/mp4" });
+    try { await ff.deleteFile("out.mp4"); } catch(_){}
+    progressTrack.classList.remove("indeterminate");
+    finishExport(blob, performance.now() - tStart, "mp4");
+  } catch(e){
+    progressTrack.classList.remove("indeterminate");
+    if(e && e.name === "AbortError"){
+      setStatus("", "Cancelled.");
+      progressWrap.classList.remove("visible");
+    } else {
+      console.error(e);
+      showToast("Export failed: " + (e && e.message ? e.message : "unknown error"));
+      setStatus("", "Export error \u2014 try again.");
+    }
+  } finally {
+    offlineFreq = null;
+    exportAbort = null;
+    resetRecUI();
+  }
+}
+
 // ── LIVE EXPORT ─────────────────────────────────────────────
 // The classic exporter loops one disc revolution — perfect for a static
 // background. Animated/beat-reactive scenes are not periodic, so this path
 // captures the scene in real time (1×) at full export resolution with the
 // audio muxed in, then transcodes to a high-quality H.264 MP4 in the browser.
-async function liveExport(){
+async function liveExportRealtime(){
   stopPreview();
   btnDownload.style.display = "none";
   if (lastBlobUrl) { URL.revokeObjectURL(lastBlobUrl); lastBlobUrl = null; }
@@ -2602,7 +2934,7 @@ async function liveExport(){
   const isMp4 = mime.indexOf("mp4") >= 0;
   const rec = new MediaRecorder(stream, {
     mimeType: mime,
-    videoBitsPerSecond: Math.min(45000000, Math.round(W*H*14))
+    videoBitsPerSecond: Math.min(60000000, Math.round(W*H*21))
   });
   const chunks = [];
   rec.ondataavailable = e => { if(e.data && e.data.size) chunks.push(e.data); };
@@ -2708,11 +3040,18 @@ async function liveExport(){
       if(hasAudio) cmd.push("-ss", String(audioStart), "-i", "audio_in");
       cmd.push("-map","0:v");
       if(copyVideo) cmd.push("-c:v","copy");
-      else cmd.push("-c:v","libx264","-preset","ultrafast","-crf","17","-pix_fmt","yuv420p");
+      else cmd.push("-c:v","libx264","-preset","superfast","-crf","16",
+        "-maxrate", capKbps + "k", "-bufsize", (capKbps * 2) + "k", "-pix_fmt","yuv420p");
       if(hasAudio) cmd.push("-map","1:a","-c:a","aac","-b:a","320k","-shortest");
       cmd.push("-t", String(duration), "-movflags","+faststart","out.mp4");
       return cmd;
     }
+    // The final MP4 is a stream-copy of the loop, so its size = song duration x
+    // loop bitrate — and everything lives inside wasm's ~2 GB memory. Cap the
+    // loop bitrate adaptively so full-length songs always fit: ~600 MB video
+    // budget => up to 20 Mbps for short clips, ~15 Mbps at 5-6 min, less for
+    // very long mixes (never below 4 Mbps).
+    const capKbps = Math.max(6000, Math.min(28000, Math.floor(1000 * 8192 / Math.max(1, duration))));
     if(fastLoop){
       // 1) Bake a seamless loop: crossfade the first XFADE seconds into the
       //    tail. The disc angle is identical on both layers (whole
@@ -2724,8 +3063,12 @@ async function liveExport(){
         "[s1]trim=duration=" + XFADE + ",setpts=PTS-STARTPTS[b];" +
         "[a][b]xfade=transition=fade:duration=" + XFADE + ":offset=" + (segLen - XFADE) + "[v]";
       await ff.exec(["-y","-i",inName,"-filter_complex",chain,"-map","[v]",
-        "-c:v","libx264","-preset","ultrafast","-crf","17","-pix_fmt","yuv420p",
-        "-g",String(gop),"-r","30","loop.mp4"]);
+        "-c:v","libx264","-preset","superfast","-crf","16",
+        "-maxrate", capKbps + "k", "-bufsize", (capKbps * 2) + "k",
+        "-pix_fmt","yuv420p",
+        "-g","60","-r","30","loop.mp4"]);
+      // free the captured input BEFORE the big final file is written
+      try{ await ff.deleteFile(inName); }catch(_){}
       // 2) Stream-copy-loop to full length + mux the ORIGINAL audio file.
       const cmd = ["-y","-stream_loop","-1","-i","loop.mp4"];
       if(hasAudio) cmd.push("-ss", String(audioStart), "-i", "audio_in");
@@ -2777,7 +3120,7 @@ return { canvas: glc, active, render, setArtwork, ensureAudio, liveExport, updat
   const hints = [
     "Recording? Keep this tab visible and focused — background throttling freezes frames.",
     "Beat sync works on clips up to 1 minute — pick 30s or 1m under Duration.",
-    "Export render: Fast loop finishes in ~1 min for any song; Full 1× renders every second uniquely (slow rotations complete).",
+    "Export render: Fast loop finishes in ~1 min for any song; Full render draws every frame, so slow rotations complete.",
     "Click or drag on the waveform to jump anywhere in the song.",
     "Each effect has its own defaults — the ↺ reset next to Effect settings brings them back."
   ];
