@@ -633,9 +633,7 @@
         <button class="fx-btn" data-a="card" title="Square poster centred on the frame → no rotation. Pulses subtly on the kick when Beat sync is on.">Card</button>
         <button class="fx-btn" data-a="off" title="No artwork layer → the background effect fills the whole frame">Off</button>
       </div>
-      <div class="fx-grid2" style="margin-top:6px">
-        <button class="fx-btn" id="fxBeat" style="grid-column:1/-1">Beat sync: off</button>
-      </div>
+
 
       <div class="fx-lbl">Export render <b id="fxvRender" style="text-transform:none">Fast loop</b></div>
       <div class="fx-grid2" id="fxRender">
@@ -742,7 +740,7 @@
 </main>
 
 <footer>
-  <div class="footer-note">WEB v4.5 · 2026-08-19 · beat sync rebuilt as smooth bass envelope (breathes with the low end) · disc reaction softened</div>
+  <div class="footer-note">WEB v4.6 · 2026-08-19 · beat sync removed · Pulse dial is the rhythm control · Spectrum stays audio-live</div>
 </footer>
 
 <div class="toast" id="toast"></div>
@@ -1315,7 +1313,6 @@ function syncDuration() {
   }
   updateDurationButtons();
   checkReady();
-  if (window.FX && FX.updateBeatAvail) FX.updateBeatAvail();
 }
 
 function updateDurationButtons() {
@@ -2558,7 +2555,7 @@ function applyPalette(pal, keepBase){
 }
 
 // ── state + per-effect slider defaults ──
-const st = {mode:-1, dir:1, art:"disc", beatSync:false, renderMode:"loop", ca:0, pulse:0,
+const st = {mode:-1, dir:1, art:"disc", renderMode:"loop", ca:0, pulse:0,
             speed:1, warp:0.35, streak:0.65, swirl:0.5, scale:1, trail:0, beat:0};
 const MODE_DEFAULTS = {
   "-1":{speed:1,   warp:0.35, streak:0.65, swirl:0.5, scale:1,   trail:0},
@@ -2616,6 +2613,9 @@ document.getElementById("fxRender").addEventListener("click", e=>{
   document.querySelectorAll("#fxRender button").forEach(x=>x.classList.toggle("on", x===b));
   document.getElementById("fxvRender").textContent = st.renderMode === "loop" ? "Fast loop" : "Full render";
 });
+function exportDurationSec(){
+  return S.audioLoaded ? (S.trimEnd - S.trimStart) * S.audioDuration : S.silentDuration;
+}
 const FX_NEEDS_FULL = {2:"Vortex",3:"Ripple",6:"Tunnel",7:"Kaleido",9:"Spectrum",15:"Datamosh",16:"Feedback",23:"Twinspin"};
 let fxFullHintShown = false;
 document.getElementById("fxModes").addEventListener("click", e=>{
@@ -2642,34 +2642,6 @@ document.getElementById("fxArt").addEventListener("click", e=>{
   document.querySelectorAll("#fxArt button").forEach(x=>x.classList.toggle("on", x===b));
   if(!animId) draw();
 });
-const fxBeatBtn = document.getElementById("fxBeat");
-let beatAllowed = true;
-function exportDurationSec(){
-  return S.audioLoaded ? (S.trimEnd - S.trimStart) * S.audioDuration : S.silentDuration;
-}
-function updateBeatAvail(){
-  beatAllowed = exportDurationSec() <= 61;
-  if(!beatAllowed && st.beatSync){
-    st.beatSync = false;
-    fxBeatBtn.textContent = "Beat sync: off";
-    fxBeatBtn.classList.remove("on");
-  }
-  fxBeatBtn.classList.toggle("dis", !beatAllowed);
-  fxBeatBtn.title = beatAllowed
-    ? "Visuals react to the kick of the playing song"
-    : "Beat sync works on clips up to 1 minute → pick 30s or 1m under Duration";
-}
-fxBeatBtn.addEventListener("click", ()=>{
-  if(!beatAllowed){
-    showToast("Beat sync works on clips up to 1 minute → pick 30s or 1m under Duration.");
-    return;
-  }
-  st.beatSync = !st.beatSync;
-  fxBeatBtn.textContent = "Beat sync: " + (st.beatSync?"on":"off");
-  fxBeatBtn.classList.toggle("on", st.beatSync);
-  if(st.beatSync) ensureAudio();
-});
-updateBeatAvail();
 document.getElementById("fxRstFx").addEventListener("click", ()=>applyModeDefaults(st.mode));
 document.getElementById("fxRstPal").addEventListener("click", ()=>{
   applyPalette(basePal, true);
@@ -2681,8 +2653,7 @@ document.getElementById("fxRstPal").addEventListener("click", ()=>{
 // ── audio analysis: transient kick + 32 normalized spectrum bands ──
 const fxA = {ctx:null, analyser:null, freq:null};
 let bassAvg = 0.05;
-// bass envelope follower state
-let envPeak = 0.02, envSm = 0, lastTSec = -1;
+let lastTSec = -1;
 const spec = new Float32Array(32);
 const specMax = new Float32Array(32).fill(0.05);
 function ensureAudio(){
@@ -2703,31 +2674,13 @@ function updateBeat(tSec){
   const playing = (offlineFreq !== null) || (fxA.analyser && !audioEl.paused);
   if(playing){
     // Timeline restarted (export starts at t=0) or scrubbed backwards
-    if(tSec + 0.25 < lastTSec){
-      envPeak = 0.02; envSm = 0; lastTSec = -1; st.beat = 0;
-    }
 
     let freq, sr;
     if(offlineFreq !== null){ freq = offlineFreq; sr = offlineSR; }
     else { fxA.analyser.getByteFrequencyData(fxA.freq); freq = fxA.freq; sr = fxA.ctx.sampleRate; }
     const binHz = sr/2048;
-    let lo = Math.max(1, Math.round(30/binHz)), hi = Math.round(130/binHz), sum = 0;
-    for(let i=lo;i<=hi;i++) sum += freq[i];
-    const bass = sum/((hi-lo+1)*255);
-
-    // ── smooth bass envelope follower ──
-    // No onset pops: the beat value simply breathes with the low end.
-    // Energy is normalized against its own recent peak (slow-decaying, ~2 s),
-    // then smoothed asymmetrically: ~60 ms attack, ~260 ms release. The result
-    // rises gently into every bass hit and settles softly after it.
-    const dt = lastTSec >= 0 ? Math.max(0.001, Math.min(0.1, tSec - lastTSec)) : 0.016;
     lastTSec = tSec;
-    const e = bass*bass;
-    envPeak = Math.max(e, envPeak * Math.exp(-dt/2.0), 0.0008);
-    let envN = Math.pow(Math.min(1, e/envPeak), 1.5);      // quiet stays quiet
-    const tau = envN > envSm ? 0.06 : 0.26;
-    envSm += (envN - envSm) * (1 - Math.exp(-dt/tau));
-    st.beat = st.beatSync ? envSm : 0;
+    st.beat = 0;
     const fMin = 40, fMax = 14000;
     for(let b=0;b<32;b++){
       const f0 = fMin*Math.pow(fMax/fMin, b/32);
@@ -2758,8 +2711,7 @@ function render(W, H, angleDeg, tOverride){
   const t = (tOverride !== undefined) ? tOverride : (performance.now()-t0)/1000;
   updateBeat(t);
   const bg = hexToRgb01(S.bgColor || "#111111");
-  const beatDisc = (st.beatSync && st.art !== "off") ? st.beat : 0;
-  const beatBg   = (st.beatSync && st.art === "off") ? st.beat : 0;
+  const beatDisc = 0, beatBg = 0;
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, fbo[cur]);
   gl.viewport(0,0,W,H);
@@ -2784,7 +2736,7 @@ function render(W, H, angleDeg, tOverride){
   gl.uniform1i(U.uArt, st.art === "disc" ? 1 : (st.art === "card" ? 2 : 0));
   gl.uniform1f(U.uDiscR, S.vinylPct * 0.5);
   gl.uniform1f(U.uAngle, angleDeg * Math.PI/180);
-  gl.uniform1i(U.uDiscFx, st.beatSync ? 1 : 0);
+  gl.uniform1i(U.uDiscFx, 0);
   gl.uniform1f(U.uBeat, beatDisc);
   gl.uniform1f(U.uBeatBg, beatBg);
   gl.uniform1fv(U.uSpec, spec);
@@ -2802,7 +2754,7 @@ function render(W, H, angleDeg, tOverride){
 }
 
 function active(){
-  return S.imageLoaded && (st.mode >= 0 || st.beatSync || st.art !== "disc");
+  return S.imageLoaded && (st.mode >= 0 || st.art !== "disc");
 }
 
 // ── DETERMINISTIC GPU EXPORT (WebCodecs) ────────────────────
@@ -2913,7 +2865,7 @@ async function liveExport(){
 
   const XFADE   = 1.0;
   const SIM_FPS = 60;
-  const fastLoopPossible = !st.beatSync && st.renderMode !== "full";
+  const fastLoopPossible = st.renderMode !== "full";
   const OUT_FPS = 60;                 // GPU encoder: 60 fps everywhere = preview-smooth motion
   const STEP    = SIM_FPS / OUT_FPS;
 
@@ -3159,7 +3111,7 @@ async function liveExportRealtime(){
   const XFADE  = 1.0;
   const revSec = 60 / Math.max(S.rpm, 1);
   const segLen = revSec * Math.max(1, Math.ceil(12 / revSec));   // whole revolutions, ≥12 s
-  const fastLoop = !st.beatSync && st.renderMode !== "full" && (duration > segLen + XFADE + 2);
+  const fastLoop = st.renderMode !== "full" && (duration > segLen + XFADE + 2);
   const captureSeconds = fastLoop ? (segLen + XFADE) : duration;
 
   // compositor: GL scene + optional foreground image, this is what gets recorded
@@ -3354,7 +3306,7 @@ async function liveExportRealtime(){
   }
 }
 
-return { canvas: glc, active, render, setArtwork, ensureAudio, liveExport, updateBeatAvail };
+return { canvas: glc, active, render, setArtwork, ensureAudio, liveExport };
 })();
 
 // ── Top bar: general hints rotate; notable picks show what they pair with ──
@@ -3364,7 +3316,6 @@ return { canvas: glc, active, render, setArtwork, ensureAudio, liveExport, updat
 
   const GENERAL = [
     "Recording? Keep this tab visible and focused \u2192 background throttling freezes frames.",
-    "Beat sync works on clips up to 1 minute \u2192 pick 30s or 1m under Duration for best performance.",
     "Effects marked FULL rotate or evolve continuously \u2192 on full songs set Export render to Full render.",
     "Fast loop exports any song length in about a minute; Full render draws every frame on the GPU.",
     "Click or drag the waveform to jump anywhere in the song.",
@@ -3372,7 +3323,7 @@ return { canvas: glc, active, render, setArtwork, ensureAudio, liveExport, updat
   ];
   // pairing tips: not what the effect does, but what it works well with
   const PAIR = {
-    "-1":"Off \u2192 clean solid stage. Pair Disc + Beat sync for a kick-driven promo.",
+    "-1":"Off \u2192 clean solid stage for the disc or card.",
     "0":"Melt pairs with Card at low Speed for moody covers \u2192 add a touch of Aberration.",
     "1":"Palette flow pairs with edited swatches \u2192 repaint it to match the release colors.",
     "2":"Vortex pairs with Trails 0.3. Full song \u2192 Full render, so the spin completes.",
@@ -3381,7 +3332,7 @@ return { canvas: glc, active, render, setArtwork, ensureAudio, liveExport, updat
     "5":"Nebula pairs behind Card or Disc \u2192 add Pulse for a slow breathing backdrop.",
     "6":"Tunnel pairs with Aberration. Swirl above 0 rotates \u2192 on full songs use Full render.",
     "7":"Kaleido pairs with Trails 0.2. Full song \u2192 Full render for uninterrupted rotation.",
-    "8":"Glitch pairs with Beat sync on short clips \u2192 it tears on the kick. Add slight Aberration.",
+    "8":"Glitch pairs with a touch of Aberration \u2192 crank Speed for chaos.",
     "9":"Spectrum pairs with Artwork off + high Trails \u2192 needs the song playing.",
     "10":"Droste pairs with high Trails \u2192 hypnotic infinite fall into the artwork.",
     "11":"Warp pairs with high Streak + Trails \u2192 Reverse pulls the stars inward.",
@@ -3393,7 +3344,7 @@ return { canvas: glc, active, render, setArtwork, ensureAudio, liveExport, updat
     "17":"VHS pairs great with Aberration around 0.2\u20130.3 \u2192 the full tape look.",
     "18":"Burn pairs with warm artworks \u2192 stack slight Aberration for retro film.",
     "19":"Halftone pairs with Card \u2192 editorial print promo at low Speed.",
-    "20":"Slices pairs with Beat sync on short clips \u2192 Scale sets the bar count.",
+    "20":"Slices pairs with the Pulse dial \u2192 Scale sets the bar count.",
     "21":"Dither pairs with low Speed \u2192 Swirl tints the ink from your palette.",
     "22":"ASCII pairs with Swirl up \u2192 moves from terminal green to palette ink.",
     "23":"Twinspin pairs with Reverse + high Swirl \u2192 double-spin moire. Long songs \u2192 Full render."
@@ -3426,9 +3377,6 @@ return { canvas: glc, active, render, setArtwork, ensureAudio, liveExport, updat
   document.getElementById("fxArt").addEventListener("click", e=>{
     const b = e.target.closest("button"); if(!b) return;
     if(b.dataset.a === "card") tip("Card pairs best with Echo behind it \u2192 or Nebula/Bloom for atmosphere.");
-  });
-  document.getElementById("fxBeat").addEventListener("click", ()=>{
-    if(st.beatSync) tip("Beat sync on \u2192 clips up to 1 minute, tab focused while recording, kick does the rest.");
   });
   document.getElementById("fxRender").addEventListener("click", e=>{
     const b = e.target.closest("button"); if(!b) return;
