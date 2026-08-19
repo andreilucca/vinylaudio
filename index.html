@@ -2707,6 +2707,14 @@ function updateBeat(tSec){
       envPeak = 0.02; envSm = 0; lastTSec = -1; st.beat = 0;
     }
 
+    let freq, sr;
+    if(offlineFreq !== null){ freq = offlineFreq; sr = offlineSR; }
+    else { fxA.analyser.getByteFrequencyData(fxA.freq); freq = fxA.freq; sr = fxA.ctx.sampleRate; }
+    const binHz = sr/2048;
+    let lo = Math.max(1, Math.round(30/binHz)), hi = Math.round(130/binHz), sum = 0;
+    for(let i=lo;i<=hi;i++) sum += freq[i];
+    const bass = sum/((hi-lo+1)*255);
+
     // ── smooth bass envelope follower ──
     // No onset pops: the beat value simply breathes with the low end.
     // Energy is normalized against its own recent peak (slow-decaying, ~2 s),
