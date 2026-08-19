@@ -742,7 +742,7 @@
 </main>
 
 <footer>
-  <div class="footer-note">WEB v4.4 · 2026-08-19 · beat sync export fix (detector reset on new timeline) · pairing tips · arrow separators</div>
+  <div class="footer-note">WEB v4.5 · 2026-08-19 · beat sync rebuilt as smooth bass envelope (breathes with the low end) · disc reaction softened</div>
 </footer>
 
 <div class="toast" id="toast"></div>
@@ -1906,7 +1906,7 @@ float specAt(float x){
 
 vec3 background(vec2 uv, float t, float aspect){
   float pl = uPulse * pow(0.5 + 0.5*sin(uTime*(1.2 + uSpeed*0.8)), 3.0);
-  float w = uWarp*(1.0 + uBeatBg*1.4 + pl*1.3);
+  float w = uWarp*(1.0 + uBeatBg*0.8 + pl*1.3);
   float wx = fbm(vec2(uv.x*3.2*uScale,       uv.y*0.7*uScale + t*0.16)) - 0.5;
   float wy = fbm(vec2(uv.x*2.1*uScale + 7.3, uv.y*0.45*uScale - t*0.11)) - 0.5;
   vec3 col = uBgCol;
@@ -2278,7 +2278,7 @@ vec3 background(vec2 uv, float t, float aspect){
     col = mix(col, 1.0 - (1.0-A)*(1.0-B), uStreak*0.45);
   }
 
-  col *= 1.0 + uBeatBg*0.25 + pl*0.20;   // pulses: routed beat and/or the internal Pulse rhythm
+  col *= 1.0 + uBeatBg*0.15 + pl*0.20;   // pulses: routed beat and/or the internal Pulse rhythm
 
   vec2 dd = uv - 0.5;
   col *= 1.0 - dot(dd,dd)*0.50;
@@ -2294,7 +2294,7 @@ void main(){
     // ── Poster card: the square artwork centred on the frame, no rotation ──
     float kick = uBeat;
     vec2 q = (gl_FragCoord.xy - 0.5*uRes)/min(uRes.x, uRes.y);
-    float h = uDiscR*(1.0 + kick*0.05);                      // gentle size pulse on the kick
+    float h = uDiscR*(1.0 + kick*0.03);                      // gentle size breath
 
     // soft rectangular drop shadow
     vec2 dq = abs(q - vec2(0.0,-0.015)) - vec2(h);
@@ -2308,11 +2308,11 @@ void main(){
       float kb = 0.985 + 0.012*sin(uTime*0.05);              // slow Ken Burns micro-zoom
       vec2 tuv = clamp(loc*0.5*kb + 0.5, 0.0, 1.0);
       vec3 art;
-      float ca = 0.005*kick;                                  // chromatic flick on the kick
+      float ca = 0.003*kick;                                  // chromatic flick on the kick
       art.r = texture2D(uTex, clamp(tuv + vec2(ca,0.0), 0.0, 1.0)).r;
       art.g = texture2D(uTex, tuv).g;
       art.b = texture2D(uTex, clamp(tuv - vec2(ca,0.0), 0.0, 1.0)).b;
-      art *= 1.0 + kick*0.18;                                 // lighting pulse
+      art *= 1.0 + kick*0.10;                                 // lighting pulse
       float ed = max(abs(loc.x), abs(loc.y));
       art += vec3(1.0, 0.98, 0.94) * smoothstep(0.985, 1.0, ed) * (0.05 + 0.30*kick);
       float aa = smoothstep(h + 0.0022, h - 0.0022, box);
@@ -2323,7 +2323,7 @@ void main(){
     float kick = uBeat;                                      // beat sync ON + disc ON -> the disc explodes on the kick
     vec2 q = (gl_FragCoord.xy - 0.5*uRes)/min(uRes.x, uRes.y);
     float r = length(q);
-    float R = uDiscR*(1.0 + kick*0.06);                      // size punch on the kick
+    float R = uDiscR*(1.0 + kick*0.025);                     // gentle size breath
 
     float sh = smoothstep(R*1.30, R*0.92, length(q - vec2(0.0,-0.018)));
     col = mix(col, col*0.30, sh*0.75);
@@ -2334,7 +2334,7 @@ void main(){
 
       if(uDiscFx == 1){
         // 3D boom: the disc pumps like a subwoofer membrane on the kick
-        float dome = kick*0.30;
+        float dome = kick*0.12;
         float rrS = rr0*(1.0 - dome*(1.0 - rr0*rr0));
         if(rr0 > 1e-4) dLoc *= rrS/rr0;
       }
@@ -2350,15 +2350,15 @@ void main(){
         float rr = length(rot);
         vec2 dirn = rr > 1e-4 ? rot/rr : vec2(1.0,0.0);
         float vary = fbm(dirn*2.5 + rr*2.0);
-        float push = kick*(0.12 + 0.35*vary);
+        float push = kick*(0.05 + 0.14*vary);
         vec2 rp = rot*(1.0 - push*0.5);
-        float sp = 0.035*kick;
+        float sp = 0.012*kick;
         art.r = texture2D(uTex, clamp(rp*(1.0+sp)*0.5+0.5, 0.0, 1.0)).r;
         art.g = texture2D(uTex, clamp(rp*0.5+0.5,          0.0, 1.0)).g;
         art.b = texture2D(uTex, clamp(rp*(1.0-sp)*0.5+0.5, 0.0, 1.0)).b;
         // pumped lighting: centre flash + one light ring racing outward
-        art *= 1.0 + kick*0.35*(1.0 - rr0);
-        art += vec3(1.0,0.95,0.85) * pow(max(0.0, 1.0 - abs(rr0 - (0.3+0.6*kick))*5.0), 6.0) * kick*0.45;
+        art *= 1.0 + kick*0.16*(1.0 - rr0);
+        art += vec3(1.0,0.95,0.85) * pow(max(0.0, 1.0 - abs(rr0 - (0.3+0.6*kick))*5.0), 6.0) * kick*0.20;
       } else {
         art = texture2D(uTex, clamp(rot*0.5+0.5, 0.0, 1.0)).rgb;
       }
@@ -2366,7 +2366,7 @@ void main(){
       float hole = smoothstep(R*0.032, R*0.024, r);
       art = mix(art, vec3(0.045), hole);
       float ring = smoothstep(0.0045, 0.0, abs(r - R + 0.003));
-      art += ring*(0.12 + 0.50*kick);
+      art += ring*(0.12 + 0.22*kick);
 
       float aa2 = smoothstep(R + 0.0025, R - 0.0025, r);
       col = mix(col, art, aa2);
@@ -2681,10 +2681,8 @@ document.getElementById("fxRstPal").addEventListener("click", ()=>{
 // ── audio analysis: transient kick + 32 normalized spectrum bands ──
 const fxA = {ctx:null, analyser:null, freq:null};
 let bassAvg = 0.05;
-// Patin-style beat state: ~1 s ring buffer of bass energy + envelope timing
-const EH_N = 43;
-const eHist = new Float32Array(EH_N);
-let eIdx = 0, eFill = 0, lastBeatT = -10, lastTSec = -1;
+// bass envelope follower state
+let envPeak = 0.02, envSm = 0, lastTSec = -1;
 const spec = new Float32Array(32);
 const specMax = new Float32Array(32).fill(0.05);
 function ensureAudio(){
@@ -2704,44 +2702,24 @@ let offlineFreq = null, offlineSR = 48000; // set per-frame during the offline e
 function updateBeat(tSec){
   const playing = (offlineFreq !== null) || (fxA.analyser && !audioEl.paused);
   if(playing){
-    // Timeline restarted (export starts at t=0) or scrubbed backwards:
-    // reset the detector, otherwise the refractory guard stays in the future
-    // and no kick can ever fire again on the new timeline.
+    // Timeline restarted (export starts at t=0) or scrubbed backwards
     if(tSec + 0.25 < lastTSec){
-      eFill = 0; eIdx = 0; lastBeatT = -10; st.beat = 0;
+      envPeak = 0.02; envSm = 0; lastTSec = -1; st.beat = 0;
     }
-    let freq, sr;
-    if(offlineFreq !== null){ freq = offlineFreq; sr = offlineSR; }
-    else { fxA.analyser.getByteFrequencyData(fxA.freq); freq = fxA.freq; sr = fxA.ctx.sampleRate; }
-    const binHz = sr/2048;
-    let lo = Math.max(1, Math.round(30/binHz)), hi = Math.round(130/binHz), sum = 0;
-    for(let i=lo;i<=hi;i++) sum += freq[i];
-    const bass = sum/((hi-lo+1)*255);
-    const e = bass*bass;                       // energy → squares punch the transients
 
-    // ── Patin adaptive-threshold beat detection ──
-    // instant energy vs the mean of the last ~1 s, with the threshold factor
-    // adapted by the VARIANCE of that history: punchy music lowers the bar,
-    // flat music raises it (line through (0,1.55)-(0.02,1.25), rescaled to
-    // our squared 0..1 energies and clamped).
-    let target = 0;
-    const n = Math.max(eFill, 1);
-    let avg = 0; for(let i=0;i<n;i++) avg += eHist[i]; avg /= n;
-    let V = 0;   for(let i=0;i<n;i++){ const d = eHist[i]-avg; V += d*d; } V /= n;
-    const C = Math.min(1.55, Math.max(1.12, 1.55 - V*600.0));
-    const warm = eFill >= EH_N*0.5;
-    if(warm && avg > 0.0004 && e > C*avg && (tSec - lastBeatT) > 0.14){
-      lastBeatT = tSec;
-      target = Math.min(1, 0.72 + (e/(C*avg) - 1.0)*0.35);   // decisive, ratio-scaled hit
-    }
-    eHist[eIdx] = e; eIdx = (eIdx+1)%EH_N; if(eFill < EH_N) eFill++;
-
-    // ── natural envelope: instant attack, real-time exponential release ──
-    // (dt-based, so preview at any fps and the deterministic export decay
-    //  identically; τ = 160 ms reads as a round, musical pump)
-    const dt = lastTSec >= 0 ? Math.max(0, Math.min(0.1, tSec - lastTSec)) : 0.016;
+    // ── smooth bass envelope follower ──
+    // No onset pops: the beat value simply breathes with the low end.
+    // Energy is normalized against its own recent peak (slow-decaying, ~2 s),
+    // then smoothed asymmetrically: ~60 ms attack, ~260 ms release. The result
+    // rises gently into every bass hit and settles softly after it.
+    const dt = lastTSec >= 0 ? Math.max(0.001, Math.min(0.1, tSec - lastTSec)) : 0.016;
     lastTSec = tSec;
-    st.beat = st.beatSync ? Math.max(target, st.beat * Math.exp(-dt/0.16)) : 0;
+    const e = bass*bass;
+    envPeak = Math.max(e, envPeak * Math.exp(-dt/2.0), 0.0008);
+    let envN = Math.pow(Math.min(1, e/envPeak), 1.5);      // quiet stays quiet
+    const tau = envN > envSm ? 0.06 : 0.26;
+    envSm += (envN - envSm) * (1 - Math.exp(-dt/tau));
+    st.beat = st.beatSync ? envSm : 0;
     const fMin = 40, fMax = 14000;
     for(let b=0;b<32;b++){
       const f0 = fMin*Math.pow(fMax/fMin, b/32);
