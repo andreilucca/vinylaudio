@@ -670,6 +670,8 @@
         <button class="fx-btn" data-m="23" title="Two copies of the artwork spinning in opposite directions, blended into a psychedelic moire. Continuous rotation → on full songs use Full render.">Twinspin <span class="fx-badge">FULL</span></button>
         <button class="fx-btn" data-m="24" title="The artwork gains real depth: a virtual camera orbits a pseudo-3D version of the image, near planes sharp, far planes defocused. Continuous orbit → on full songs use Full render.">Depth 3D <span class="fx-badge">FULL</span></button>
         <button class="fx-btn" data-m="25" title="Chladni plate: sand made of the artwork's colors settles on the nodal lines of a vibrating plate. The plate vibrates with the music, patterns morph continuously.">Cymatics</button>
+        <button class="fx-btn" data-m="26" title="A living contour map of the artwork: its luminance is the terrain and the contour lines flow endlessly through the levels, emanating around the bright peaks. Perfectly cyclic.">Topographic</button>
+        <button class="fx-btn" data-m="27" title="The artwork on a real tube monitor: curved glass, phosphor RGB triads, scanlines, and a hum bar rolling down the screen forever. VHS is the tape; this is the television.">CRT</button>
       </div>
       <div class="fx-grid2" id="fxDirs" style="margin-top:6px">
         <button class="fx-btn on" data-d="1">&#10227; Forward</button>
@@ -746,7 +748,7 @@
 </main>
 
 <footer>
-  <div class="footer-note">WEB v6.2 · 2026-09-21 · Shatter removed · stable new catalog: Depth 3D + Cymatics + finishing dials (Glow, Grain, Vignette)</div>
+  <div class="footer-note">WEB v6.6 · 2026-09-21 · Fisheye removed · stable new catalog: Depth 3D, Cymatics, Topographic, CRT + finishing dials</div>
 </footer>
 
 <div class="toast" id="toast"></div>
@@ -2342,6 +2344,66 @@ vec3 background(vec2 uv, float t, float aspect){
     col += vec3(1.0, 0.98, 0.94)*lineC*dm*0.25;                // bright grains sparkle
   }
 
+  if(uMode == 26){
+    // Topographic — the artwork becomes a living contour map: its luminance
+    // is the terrain, and the contour lines FLOW endlessly through the levels
+    // (a perfectly periodic routine), emanating around the image's bright
+    // peaks like a breathing landscape. Editorial map look.
+    vec3 LWt = vec3(0.299, 0.587, 0.114);
+    vec2 qq2 = (uv - 0.5)*vec2(aspect, 1.0)/max(aspect, 1.0);
+    vec2 su = qq2 + 0.5;
+    su += (vec2(fbm(su*3.0 + t*0.06), fbm(su*3.0 - t*0.05)) - 0.5)*w*0.06;
+    su = clamp(su, 0.0, 1.0);
+    vec3 aBlur = grade(texture2D(uTex, su, 3.5).rgb);      // smoothed terrain
+    float l = dot(aBlur, LWt);
+    float N = 8.0 + 16.0*clamp(uScale, 0.3, 3.0);
+    float lev = l*N - t*0.35*uDir;                         // the flowing routine
+    float fq = fract(lev);
+    float dd = min(fq, 1.0 - fq);
+    float wd = 0.05 + 0.09*uStreak;
+    float lineT = smoothstep(wd, wd*0.35, dd);
+    float major = step(0.79, fract(floor(lev)/5.0 + 0.01));// every 5th line, bolder
+    vec3 artC = grade(texture2D(uTex, su).rgb);
+    vec3 lineCol = mix(palette(0.50 + l*0.40), artC*1.5, clamp(uSwirl, 0.0, 1.0));
+    col = uBgCol*0.40 + artC*0.06;                         // faint map base
+    col += lineCol*lineT*(0.55 + 0.55*major)*(0.55 + 0.85*uStreak);
+    col += palette(0.85)*smoothstep(0.78, 1.0, l)*0.14;    // summit glow
+  }
+
+  if(uMode == 27){
+    // CRT — the artwork on a real tube monitor: barrel-curved glass, phosphor
+    // RGB triads, scanlines, gun misconvergence, and the repeating routine:
+    // a hum bar rolling down the screen forever, plus a soft glass highlight.
+    // (VHS is the tape; this is the television.)
+    vec2 cc = (uv - 0.5)*2.0;
+    float r2 = dot(cc, cc);
+    vec2 cuv = uv + cc*r2*(0.03 + 0.09*w);               // Warp = tube curvature
+    vec2 bb = abs(cuv - 0.5)*2.0;
+    float inside = step(max(bb.x, bb.y), 1.0);
+    vec2 qq2 = (cuv - 0.5)*vec2(aspect, 1.0)/max(aspect, 1.0);
+    vec2 su = clamp(qq2 + 0.5, 0.0, 1.0);
+    float mc = uSwirl*0.0045*(0.3 + r2);                 // Swirl = gun misconvergence
+    vec3 art;
+    art.r = grade(texture2D(uTex, clamp(su + vec2(mc, 0.0), 0.0, 1.0)).rgb).r;
+    art.g = grade(texture2D(uTex, su).rgb).g;
+    art.b = grade(texture2D(uTex, clamp(su - vec2(mc, 0.0), 0.0, 1.0)).rgb).b;
+    float scan = 1.0 - (0.10 + 0.22*uStreak)*(0.5 + 0.5*sin(cuv.y*uRes.y*2.83));
+    float px3 = cuv.x*uRes.x*0.35*clamp(uScale, 0.4, 2.5);
+    vec3 tri = clamp(vec3(sin(px3*2.094), sin(px3*2.094 + 2.094), sin(px3*2.094 + 4.188))*0.30 + 0.85, 0.0, 1.0);
+    float bar = fract(cuv.y*0.9 - t*0.12*uDir);          // the rolling routine
+    float hum = exp(-pow((bar - 0.5)*4.0, 2.0));
+    float flick = 0.985 + 0.015*sin(uTime*37.0);
+    col = art*scan*flick;
+    col *= tri;
+    col *= 1.0 - hum*(0.10 + 0.20*uStreak);
+    col += vec3(0.9, 0.95, 1.0)*hum*hum*0.05;            // faint leading glow on the bar
+    float gh = pow(max(0.0, 1.0 - length(cc - vec2(-0.45, -0.62))), 3.0);
+    col += vec3(1.0)*gh*0.09;                            // glass reflection
+    col *= smoothstep(1.06, 0.82, max(bb.x, bb.y));      // tube corner falloff
+    col *= inside;
+    col += (1.0 - inside)*uBgCol*0.25;                   // bezel
+  }
+
   col *= 1.0 + uBeatBg*0.25;   // the background breathes with the Beat dial
 
   vec2 dd = uv - 0.5;
@@ -2743,7 +2805,9 @@ const MODE_DEFAULTS = {
   "22":{speed:0.5, warp:0.20, streak:0.30, swirl:0.3, scale:1,   trail:0},
   "23":{speed:0.7, warp:0.30, streak:0.40, swirl:0.6, scale:1,   trail:0.20},
   "24":{speed:0.6, warp:0.50, streak:0.40, swirl:0.5, scale:1,   trail:0},
-  "25":{speed:0.6, warp:0.30, streak:0.50, swirl:0.4, scale:1,   trail:0.20}
+  "25":{speed:0.6, warp:0.30, streak:0.50, swirl:0.4, scale:1,   trail:0.20},
+  "26":{speed:0.6, warp:0.35, streak:0.55, swirl:0.6, scale:1,   trail:0.15},
+  "27":{speed:0.6, warp:0.50, streak:0.60, swirl:0.4, scale:1,   trail:0}
 };
 
 const SLIDERS = {
@@ -3524,7 +3588,9 @@ return { canvas: glc, active, render, setArtwork, ensureAudio, liveExport };
     "22":"ASCII pairs with Swirl up \u2192 moves from terminal green to palette ink.",
     "23":"Twinspin pairs with Reverse + high Swirl \u2192 double-spin moire. Long songs \u2192 Full render.",
     "24":"Depth 3D pairs with Artwork off \u2192 Warp = depth, Swirl = orbit, Streak = focus blur. Long songs \u2192 Full render.",
-    "25":"Cymatics pairs with the music itself (the plate vibrates on the song) \u2192 Streak = line width, Scale = pattern complexity."
+    "25":"Cymatics pairs with the music itself (the plate vibrates on the song) \u2192 Streak = line width, Scale = pattern complexity.",
+    "26":"Topographic pairs with Card floating on the map \u2192 lines flow forever: Scale = density, Swirl = ink vs artwork colors.",
+    "27":"CRT pairs with Artwork off (the full retro monitor) \u2192 Warp = curvature, Streak = scanlines + rolling bar, Swirl = misconvergence."
   };
 
   let gi = 0, hold = null, rot = null;
