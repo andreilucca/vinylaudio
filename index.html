@@ -630,7 +630,7 @@
       <div class="fx-lbl" style="margin-top:0">Artwork</div>
       <div class="fx-grid2" id="fxArt" style="grid-template-columns:repeat(3,1fr)">
         <button class="fx-btn on" data-a="disc" title="Spinning vinyl disc">Disc</button>
-        <button class="fx-btn" data-a="card" title="Square poster centred on the frame → no rotation. Pulses subtly on the kick when Beat sync is on.">Card</button>
+        <button class="fx-btn" data-a="card" title="Square poster centred on the frame → no rotation, with a soft drop shadow and a slow Ken Burns micro-zoom.">Card</button>
         <button class="fx-btn" data-a="off" title="No artwork layer → the background effect fills the whole frame">Off</button>
       </div>
 
@@ -668,6 +668,8 @@
         <button class="fx-btn" data-m="21" title="1-bit Bayer dither: ink dots on paper, retro-web. Scale = resolution, Streak = contrast, Swirl = tint the ink from the palette.">Dither</button>
         <button class="fx-btn" data-m="22" title="Terminal mosaic: glyph-like marks whose density follows the artwork. Swirl blends from terminal green to palette colors.">ASCII</button>
         <button class="fx-btn" data-m="23" title="Two copies of the artwork spinning in opposite directions, blended into a psychedelic moire. Continuous rotation → on full songs use Full render.">Twinspin <span class="fx-badge">FULL</span></button>
+        <button class="fx-btn" data-m="24" title="The artwork gains real depth: a virtual camera orbits a pseudo-3D version of the image, near planes sharp, far planes defocused. Continuous orbit → on full songs use Full render.">Depth 3D <span class="fx-badge">FULL</span></button>
+        <button class="fx-btn" data-m="25" title="Chladni plate: sand made of the artwork's colors settles on the nodal lines of a vibrating plate. The plate vibrates with the music, patterns morph continuously.">Cymatics</button>
       </div>
       <div class="fx-grid2" id="fxDirs" style="margin-top:6px">
         <button class="fx-btn on" data-d="1">&#10227; Forward</button>
@@ -689,8 +691,12 @@
       <div class="fx-row"><input type="range" id="fxTrail" min="0" max="0.95" step="0.01" value="0"></div>
       <div class="fx-lbl" title="Global RGB split, stronger toward the edges → applies over everything: effect, disc, card">Aberration <b id="fxvCa">0</b></div>
       <div class="fx-row"><input type="range" id="fxCa" min="0" max="1" step="0.01" value="0"></div>
-      <div class="fx-lbl" title="Internal rhythm: a slow pump that breathes through the background → warp swells and brightness pulses, no audio needed. Rate follows the Speed slider.">Pulse <b id="fxvPulse">0</b></div>
-      <div class="fx-row"><input type="range" id="fxPulse" min="0" max="1" step="0.01" value="0"></div>
+      <div class="fx-lbl" title="Bloom: soft glow bleeding out of the bright areas, keeping their color. The classic finishing effect.">Glow <b id="fxvGlow">0</b></div>
+      <div class="fx-row"><input type="range" id="fxGlow" min="0" max="1" step="0.01" value="0"></div>
+      <div class="fx-lbl" title="Animated film grain: instant cinematic texture, and it protects gradients from platform recompression.">Grain <b id="fxvGrain">0</b></div>
+      <div class="fx-row"><input type="range" id="fxGrain" min="0" max="1" step="0.01" value="0"></div>
+      <div class="fx-lbl" title="Darkens the corners softly, focusing the eye on the disc or card.">Vignette <b id="fxvVig">0</b></div>
+      <div class="fx-row"><input type="range" id="fxVig" min="0" max="1" step="0.01" value="0"></div>
 
       <div class="fx-lbl">Palette <button class="fx-rst" id="fxRstPal">&#8634; reset</button></div>
       <div class="fx-swatches" id="fxSwatches"></div>
@@ -740,7 +746,7 @@
 </main>
 
 <footer>
-  <div class="footer-note">WEB v4.7 · 2026-08-19 · Pulse reworked: whole scene breathes (background + disc + card), faster rhythm, stronger swell</div>
+  <div class="footer-note">WEB v6.2 · 2026-09-21 · Shatter removed · stable new catalog: Depth 3D + Cymatics + finishing dials (Glow, Grain, Vignette)</div>
 </footer>
 
 <div class="toast" id="toast"></div>
@@ -1851,9 +1857,10 @@ varying vec2 vUv;
 uniform vec2  uRes;
 uniform float uTime;
 uniform sampler2D uTex;    // artwork (unit 0)
-uniform sampler2D uPrev;   // previous frame (unit 1)
+uniform sampler2D uPrev;
+uniform sampler2D uDepth;   // pseudo-depth map built from the artwork   // previous frame (unit 1)
 uniform int   uMode;   // 14 = echo (blurred artwork fill)       // -1 off,0 melt,1 flow,2 vortex,3 ripple,4 bloom,5 nebula,6 tunnel,7 kaleido,8 glitch,9 spectrum,10 droste,11 warp,12 liquid,13 reactor
-uniform float uSpeed, uWarp, uStreak, uSwirl, uScale, uDir, uTrail, uPulse;
+uniform float uSpeed, uWarp, uStreak, uSwirl, uScale, uDir, uTrail;
 uniform vec3  uPal[6];
 uniform float uPalN;
 uniform vec3  uBgCol;
@@ -1902,8 +1909,7 @@ float specAt(float x){
 }
 
 vec3 background(vec2 uv, float t, float aspect){
-  float pl = uPulse * pow(0.5 + 0.5*sin(uTime*(2.2 + uSpeed*2.3)), 3.0);
-  float w = uWarp*(1.0 + uBeatBg*0.8 + pl*1.3);
+  float w = uWarp*(1.0 + uBeatBg*0.9);
   float wx = fbm(vec2(uv.x*3.2*uScale,       uv.y*0.7*uScale + t*0.16)) - 0.5;
   float wy = fbm(vec2(uv.x*2.1*uScale + 7.3, uv.y*0.45*uScale - t*0.11)) - 0.5;
   vec3 col = uBgCol;
@@ -2275,7 +2281,68 @@ vec3 background(vec2 uv, float t, float aspect){
     col = mix(col, 1.0 - (1.0-A)*(1.0-B), uStreak*0.45);
   }
 
-  col *= 1.0 + uBeatBg*0.15 + pl*0.35;   // pulses: routed beat and/or the internal Pulse rhythm
+  if(uMode == 24){
+    // Depth 3D — the artwork gains real depth: a pseudo-depth map is built
+    // from the image and a virtual camera orbits it. Four depth layers are
+    // recomposed with parallax, near planes brighter and sharp, far planes
+    // softly defocused and tinted with atmosphere.
+    vec2 orbit = vec2(cos(t*0.55), sin(t*0.42)) * (0.010 + 0.040*uSwirl) * uDir;
+    vec2 q = (uv - 0.5)*vec2(aspect, 1.0);
+    q /= max(aspect, 1.0);
+    q /= (0.90 + 0.18*uScale);                       // slight over-zoom hides edge stretch
+    vec2 base = q + 0.5;
+    vec2 par = orbit*(0.6 + 2.4*w);                  // Warp = depth amount
+    vec3 acc = vec3(0.0);
+    float wsum = 0.0;
+    for(int L = 0; L < 4; L++){
+      float fl = float(L)/3.0;                       // 0 far .. 1 near
+      vec2 suv = clamp(base + par*(fl - 0.35), 0.0, 1.0);
+      float dHere = texture2D(uDepth, suv).r;
+      float mask = exp(-pow((dHere - fl)*3.2, 2.0)); // soft layer membership
+      float blurB = uStreak*3.5*(1.0 - fl);          // Streak = depth-of-field on far planes
+      vec3 cL = grade(texture2D(uTex, suv, blurB).rgb);
+      cL *= 0.72 + 0.38*fl;                          // near planes catch more light
+      cL = mix(cL, palette(0.2)*0.5, (1.0 - fl)*0.12);  // faint atmosphere on far planes
+      acc += cL*mask;
+      wsum += mask;
+    }
+    col = acc/max(wsum, 1e-3);
+  }
+
+  if(uMode == 25){
+    // Cymatics — Chladni plate: sand made of the artwork's colors settles on
+    // the nodal lines of a vibrating plate. The mode numbers morph smoothly
+    // between states, and the plate vibrates with the music (spectrum-driven
+    // line width), so the pattern literally dances on the song.
+    float PI2 = 3.14159265;
+    vec2 p2 = vec2((uv.x - 0.5)*aspect, uv.y - 0.5)*2.0;
+    p2 += (vec2(fbm(p2*1.5 + t*0.05), fbm(p2*1.5 - t*0.04)) - 0.5)*w*0.40;
+    float seg = floor(t*0.16);
+    float ph = smoothstep(0.0, 1.0, fract(t*0.16));
+    float maxM = 3.0 + 4.0*clamp(uScale, 0.3, 3.0)/3.0;
+    float n0 = 1.0 + floor(hash(vec2(seg, 3.7))*maxM);
+    float m0 = 1.0 + floor(hash(vec2(seg, 8.1))*maxM);
+    float n1 = 1.0 + floor(hash(vec2(seg + 1.0, 3.7))*maxM);
+    float m1 = 1.0 + floor(hash(vec2(seg + 1.0, 8.1))*maxM);
+    float nn = mix(n0, n1, ph), mm = mix(m0, m1, ph);
+    float A = cos(nn*PI2*p2.x)*cos(mm*PI2*p2.y)
+            - (1.0 - uSwirl*0.7)*cos(mm*PI2*p2.x)*cos(nn*PI2*p2.y);
+    float lvl = (uSpec[1] + uSpec[3] + uSpec[5])/3.0;
+    float wdt = (0.05 + 0.10*uStreak)*(0.7 + 0.6*lvl);
+    float lineC = exp(-pow(A/wdt, 2.0));
+    vec2 gS = p2*90.0;
+    vec2 gid = floor(gS), gf = fract(gS) - 0.5;
+    float hS = hash(gid);
+    vec2 jit = (vec2(hash(gid + 2.2), hash(gid + 6.6)) - 0.5)*0.6;
+    float dm = smoothstep(0.32, 0.10, length(gf + jit))*step(0.25, hS);
+    vec3 sand = grade(texture2D(uTex, mirror(uv)).rgb);
+    sand = mix(sand, palette(hS), 0.25);
+    col = grade(texture2D(uTex, mirror(uv)).rgb)*0.06;         // faint ghost of the artwork
+    col += sand*lineC*(0.35 + 0.65*dm)*(0.9 + 0.5*lvl);
+    col += vec3(1.0, 0.98, 0.94)*lineC*dm*0.25;                // bright grains sparkle
+  }
+
+  col *= 1.0 + uBeatBg*0.25;   // the background breathes with the Beat dial
 
   vec2 dd = uv - 0.5;
   col *= 1.0 - dot(dd,dd)*0.50;
@@ -2285,14 +2352,13 @@ vec3 background(vec2 uv, float t, float aspect){
 void main(){
   float aspect = uRes.x/uRes.y;
   float t = uTime*uSpeed;
-  float plM = uPulse * pow(0.5 + 0.5*sin(uTime*(2.2 + uSpeed*2.3)), 3.0);
   vec3 col = background(vUv, t, aspect);
 
   if(uArt == 2){
     // ── Poster card: the square artwork centred on the frame, no rotation ──
     float kick = uBeat;
     vec2 q = (gl_FragCoord.xy - 0.5*uRes)/min(uRes.x, uRes.y);
-    float h = uDiscR*(1.0 + kick*0.03 + plM*0.022);          // gentle size breath (Pulse too)
+    float h = uDiscR*(1.0 + kick*0.045);                     // breathes with the Beat dial
 
     // soft rectangular drop shadow
     vec2 dq = abs(q - vec2(0.0,-0.015)) - vec2(h);
@@ -2310,7 +2376,7 @@ void main(){
       art.r = texture2D(uTex, clamp(tuv + vec2(ca,0.0), 0.0, 1.0)).r;
       art.g = texture2D(uTex, tuv).g;
       art.b = texture2D(uTex, clamp(tuv - vec2(ca,0.0), 0.0, 1.0)).b;
-      art *= 1.0 + kick*0.10 + plM*0.07;                                 // lighting pulse
+      art *= 1.0 + kick*0.14;                                  // lighting breath
       float ed = max(abs(loc.x), abs(loc.y));
       art += vec3(1.0, 0.98, 0.94) * smoothstep(0.985, 1.0, ed) * (0.05 + 0.30*kick);
       float aa = smoothstep(h + 0.0022, h - 0.0022, box);
@@ -2321,7 +2387,7 @@ void main(){
     float kick = uBeat;                                      // beat sync ON + disc ON -> the disc explodes on the kick
     vec2 q = (gl_FragCoord.xy - 0.5*uRes)/min(uRes.x, uRes.y);
     float r = length(q);
-    float R = uDiscR*(1.0 + kick*0.025 + plM*0.022);         // gentle size breath (Pulse too)
+    float R = uDiscR*(1.0 + kick*0.040);                     // breathes with the Beat dial
 
     float sh = smoothstep(R*1.30, R*0.92, length(q - vec2(0.0,-0.018)));
     col = mix(col, col*0.30, sh*0.75);
@@ -2364,7 +2430,7 @@ void main(){
       float hole = smoothstep(R*0.032, R*0.024, r);
       art = mix(art, vec3(0.045), hole);
       float ring = smoothstep(0.0045, 0.0, abs(r - R + 0.003));
-      art += ring*(0.12 + 0.22*kick + 0.18*plM);
+      art += ring*(0.12 + 0.30*kick);
 
       float aa2 = smoothstep(R + 0.0025, R - 0.0025, r);
       col = mix(col, art, aa2);
@@ -2390,14 +2456,39 @@ const FS_COPY = `
 precision mediump float;
 varying vec2 vUv;
 uniform sampler2D uScene;
-uniform float uCA;
+uniform float uCA, uGlow, uGrain, uVig, uTimeC;
+uniform vec2 uResC;
+float hashC(vec2 p){ p = fract(p*vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x*p.y); }
 void main(){
+  // canonical finishing order: aberration → grain → bloom → vignette
   vec2 c = vUv - 0.5;
   vec2 o = c * uCA * 0.030;                 // radial RGB split, stronger at edges
   vec3 col;
   col.r = texture2D(uScene, vUv + o).r;
   col.g = texture2D(uScene, vUv).g;
   col.b = texture2D(uScene, vUv - o).b;
+
+  // Grain: animated film grain
+  col += (hashC(gl_FragCoord.xy*0.37 + fract(uTimeC)*vec2(41.7, 29.3)) - 0.5) * uGrain * 0.14;
+
+  // Glow: highlights bleed softly, keeping their own color (screen blend)
+  if(uGlow > 0.001){
+    vec2 px = vec2(uResC.y/uResC.x, 1.0);
+    vec3 g = vec3(0.0);
+    for(int i = 0; i < 8; i++){
+      float an = float(i)*0.785398;
+      vec2 dv = vec2(cos(an), sin(an))*px;
+      g += max(texture2D(uScene, vUv + dv*0.008).rgb - 0.55, 0.0);
+      g += max(texture2D(uScene, vUv + dv*0.020).rgb - 0.55, 0.0);
+    }
+    g /= 16.0;
+    col = 1.0 - (1.0 - col)*(1.0 - clamp(g*uGlow*2.4, 0.0, 1.0));
+  }
+
+  // Vignette: soft corner falloff
+  float vd = length(c*vec2(uResC.x/uResC.y, 1.0))*1.15;
+  col *= 1.0 - uVig*0.55*smoothstep(0.45, 1.05, vd);
+
   gl_FragColor = vec4(col, 1.0);
 }`;
 
@@ -2430,10 +2521,15 @@ function bindQuad(prog){
 const U = {};
 gl.useProgram(progMain);
 ["uRes","uTime","uTex","uPrev","uMode","uSpeed","uWarp","uStreak","uSwirl","uScale","uDir","uTrail",
- "uPal","uPalN","uBgCol","uArt","uDiscR","uAngle","uBeat","uBeatBg","uDiscFx","uSpec","uPulse"]
+ "uPal","uPalN","uBgCol","uArt","uDiscR","uAngle","uBeat","uBeatBg","uDiscFx","uSpec","uDepth"]
   .forEach(n => U[n] = gl.getUniformLocation(progMain, n) || gl.getUniformLocation(progMain, n + "[0]"));
 const UCopy = gl.getUniformLocation(progCopy, "uScene");
 const UCopyCA = gl.getUniformLocation(progCopy, "uCA");
+const UCopyGlow = gl.getUniformLocation(progCopy, "uGlow");
+const UCopyGrain = gl.getUniformLocation(progCopy, "uGrain");
+const UCopyVig = gl.getUniformLocation(progCopy, "uVig");
+const UCopyTime = gl.getUniformLocation(progCopy, "uTimeC");
+const UCopyRes = gl.getUniformLocation(progCopy, "uResC");
 
 // ── ping-pong framebuffers (trails), half-float when supported ──
 const extHF   = gl.getExtension("OES_texture_half_float");
@@ -2480,6 +2576,67 @@ if(extAniso){
   gl.texParameterf(gl.TEXTURE_2D, extAniso.TEXTURE_MAX_ANISOTROPY_EXT,
     gl.getParameter(extAniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT));
 }
+const depthTex = gl.createTexture();
+gl.activeTexture(gl.TEXTURE2);
+gl.bindTexture(gl.TEXTURE_2D, depthTex);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+gl.activeTexture(gl.TEXTURE0);
+
+function buildDepth(img){
+  // Pseudo-depth from the artwork: blurred luminance (bright = near) blended
+  // with a center bias, normalized. 256px is plenty for smooth parallax.
+  const N = 256;
+  const c = document.createElement("canvas");
+  c.width = c.height = N;
+  const cx = c.getContext("2d");
+  const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+  const scl = Math.max(N/iw, N/ih);
+  cx.drawImage(img, (N - iw*scl)/2, (N - ih*scl)/2, iw*scl, ih*scl);
+  const d = cx.getImageData(0, 0, N, N).data;
+  let lum = new Float32Array(N*N);
+  for(let i = 0; i < N*N; i++)
+    lum[i] = (d[i*4]*0.299 + d[i*4+1]*0.587 + d[i*4+2]*0.114)/255;
+  const tmp = new Float32Array(N*N);
+  const R = 8, W2 = 2*R + 1;
+  for(let pass = 0; pass < 3; pass++){
+    for(let y = 0; y < N; y++){
+      let sAcc = 0;
+      for(let x = -R; x <= R; x++) sAcc += lum[y*N + Math.min(N-1, Math.max(0, x))];
+      for(let x = 0; x < N; x++){
+        tmp[y*N + x] = sAcc/W2;
+        sAcc += lum[y*N + Math.min(N-1, x + R + 1)] - lum[y*N + Math.max(0, x - R)];
+      }
+    }
+    for(let x = 0; x < N; x++){
+      let sAcc = 0;
+      for(let y = -R; y <= R; y++) sAcc += tmp[Math.min(N-1, Math.max(0, y))*N + x];
+      for(let y = 0; y < N; y++){
+        lum[y*N + x] = sAcc/W2;
+        sAcc += tmp[Math.min(N-1, y + R + 1)*N + x] - tmp[Math.max(0, y - R)*N + x];
+      }
+    }
+  }
+  let mn = 1, mx = 0;
+  for(let i = 0; i < N*N; i++){ if(lum[i] < mn) mn = lum[i]; if(lum[i] > mx) mx = lum[i]; }
+  const out = new Uint8Array(N*N);
+  for(let y = 0; y < N; y++){
+    for(let x = 0; x < N; x++){
+      const cx0 = x/N - 0.5, cy0 = y/N - 0.5;
+      const g = Math.exp(-(cx0*cx0 + cy0*cy0)*3.0);
+      const v = ((lum[y*N + x] - mn)/(mx - mn + 1e-5))*0.7 + g*0.3;
+      out[(N - 1 - y)*N + x] = Math.max(0, Math.min(255, Math.round(v*255)));  // flip to match uTex
+    }
+  }
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+  gl.activeTexture(gl.TEXTURE2);
+  gl.bindTexture(gl.TEXTURE_2D, depthTex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, N, N, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, out);
+  gl.activeTexture(gl.TEXTURE0);
+}
+
 function setArtwork(img){
   const size = 2048;
   const c = document.createElement("canvas");
@@ -2495,6 +2652,7 @@ function setArtwork(img){
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, c);
   gl.generateMipmap(gl.TEXTURE_2D);
   applyPalette(extractPalette(img, 5));
+  buildDepth(img);
 }
 
 // ── palette: k-means extraction, editable, resettable ──
@@ -2556,7 +2714,7 @@ function applyPalette(pal, keepBase){
 }
 
 // ── state + per-effect slider defaults ──
-const st = {mode:-1, dir:1, art:"disc", renderMode:"loop", ca:0, pulse:0,
+const st = {mode:-1, dir:1, art:"disc", renderMode:"loop", ca:0, glow:0, grain:0, vig:0,
             speed:1, warp:0.35, streak:0.65, swirl:0.5, scale:1, trail:0, beat:0};
 const MODE_DEFAULTS = {
   "-1":{speed:1,   warp:0.35, streak:0.65, swirl:0.5, scale:1,   trail:0},
@@ -2583,13 +2741,16 @@ const MODE_DEFAULTS = {
   "16":{speed:1,   warp:0.30, streak:0.40, swirl:0.5, scale:1,   trail:0},
   "21":{speed:0.5, warp:0.20, streak:0.40, swirl:0.3, scale:1,   trail:0},
   "22":{speed:0.5, warp:0.20, streak:0.30, swirl:0.3, scale:1,   trail:0},
-  "23":{speed:0.7, warp:0.30, streak:0.40, swirl:0.6, scale:1,   trail:0.20}
+  "23":{speed:0.7, warp:0.30, streak:0.40, swirl:0.6, scale:1,   trail:0.20},
+  "24":{speed:0.6, warp:0.50, streak:0.40, swirl:0.5, scale:1,   trail:0},
+  "25":{speed:0.6, warp:0.30, streak:0.50, swirl:0.4, scale:1,   trail:0.20}
 };
 
 const SLIDERS = {
   speed:["fxSpeed","fxvSpeed"], warp:["fxWarp","fxvWarp"], streak:["fxStreak","fxvStreak"],
   swirl:["fxSwirl","fxvSwirl"], scale:["fxScale","fxvScale"], trail:["fxTrail","fxvTrail"],
-  ca:["fxCa","fxvCa"], pulse:["fxPulse","fxvPulse"]
+  ca:["fxCa","fxvCa"], glow:["fxGlow","fxvGlow"],
+  grain:["fxGrain","fxvGrain"], vig:["fxVig","fxvVig"]
 };
 function syncSlider(k, v){
   const [id,out] = SLIDERS[k];
@@ -2617,7 +2778,7 @@ document.getElementById("fxRender").addEventListener("click", e=>{
 function exportDurationSec(){
   return S.audioLoaded ? (S.trimEnd - S.trimStart) * S.audioDuration : S.silentDuration;
 }
-const FX_NEEDS_FULL = {2:"Vortex",3:"Ripple",6:"Tunnel",7:"Kaleido",9:"Spectrum",15:"Datamosh",16:"Feedback",23:"Twinspin"};
+const FX_NEEDS_FULL = {2:"Vortex",3:"Ripple",6:"Tunnel",7:"Kaleido",9:"Spectrum",15:"Datamosh",16:"Feedback",23:"Twinspin",24:"Depth 3D"};
 let fxFullHintShown = false;
 document.getElementById("fxModes").addEventListener("click", e=>{
   const b = e.target.closest("button"); if(!b) return;
@@ -2643,7 +2804,14 @@ document.getElementById("fxArt").addEventListener("click", e=>{
   document.querySelectorAll("#fxArt button").forEach(x=>x.classList.toggle("on", x===b));
   if(!animId) draw();
 });
-document.getElementById("fxRstFx").addEventListener("click", ()=>applyModeDefaults(st.mode));
+document.getElementById("fxRstFx").addEventListener("click", ()=>{
+  applyModeDefaults(st.mode);                       // per-effect sliders back to the effect's defaults
+  for(const k of ["ca","glow","grain","vig"]){      // finishing dials back to neutral zero
+    st[k] = 0;
+    syncSlider(k, 0);
+  }
+  if(!animId) draw();
+});
 document.getElementById("fxRstPal").addEventListener("click", ()=>{
   applyPalette(basePal, true);
   const sw = document.getElementById("fxSwatches");
@@ -2720,8 +2888,10 @@ function render(W, H, angleDeg, tOverride){
   bindQuad(progMain);
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
   gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, fboTex[1-cur]);
+  gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, depthTex);
   gl.uniform1i(U.uTex, 0);
   gl.uniform1i(U.uPrev, 1);
+  gl.uniform1i(U.uDepth, 2);
   gl.uniform2f(U.uRes, W, H);
   gl.uniform1f(U.uTime, t);
   gl.uniform1i(U.uMode, st.mode);
@@ -2732,7 +2902,6 @@ function render(W, H, angleDeg, tOverride){
   gl.uniform1f(U.uScale, st.scale);
   gl.uniform1f(U.uDir, st.dir);
   gl.uniform1f(U.uTrail, st.trail);
-  gl.uniform1f(U.uPulse, st.pulse);
   gl.uniform3f(U.uBgCol, bg[0], bg[1], bg[2]);
   gl.uniform1i(U.uArt, st.art === "disc" ? 1 : (st.art === "card" ? 2 : 0));
   gl.uniform1f(U.uDiscR, S.vinylPct * 0.5);
@@ -2750,6 +2919,11 @@ function render(W, H, angleDeg, tOverride){
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, fboTex[cur]);
   gl.uniform1i(UCopy, 0);
   gl.uniform1f(UCopyCA, st.ca);
+  gl.uniform1f(UCopyGlow, st.glow);
+  gl.uniform1f(UCopyGrain, st.grain);
+  gl.uniform1f(UCopyVig, st.vig);
+  gl.uniform1f(UCopyTime, t);
+  gl.uniform2f(UCopyRes, W, H);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
   cur = 1 - cur;
 }
@@ -3101,9 +3275,9 @@ async function liveExportRealtime(){
   const W = evenUp(S.canvasW), H = evenUp(S.canvasH);
 
   // Capture strategy:
-  //  • Beat sync ON  → the visuals react to the actual song, so the render
-  //    must run 1× for the full duration. Unavoidable by nature.
-  //  • Beat sync OFF → effects are pure functions of time. We capture only a
+  //  • Full render → the whole duration is rendered 1×, frame by frame,
+  //    for effects with memory (feedback) or continuous non-looping motion.
+  //  • Fast loop → effects are pure functions of time. We capture only a
   //    short segment (a whole number of disc revolutions, ≥12 s), make it a
   //    perfectly seamless loop with a 1 s crossfade baked in ffmpeg (the disc
   //    angle matches exactly at the loop point, so only the background blends,
@@ -3123,7 +3297,7 @@ async function liveExportRealtime(){
   ensureAudio();
   // Video-only capture. The audio is NOT re-captured live (that path stutters
   // under load) → it is muxed afterwards straight from the original file, so
-  // the soundtrack in the MP4 is bit-perfect. Beat sync still reads the live
+  // the soundtrack in the MP4 is bit-perfect. Spectrum still reads the live
   // playback through the analyser during the render.
   const stream = comp.captureStream(30);
   const mime = ["video/mp4;codecs=avc1", "video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"]
@@ -3330,7 +3504,7 @@ return { canvas: glc, active, render, setArtwork, ensureAudio, liveExport };
     "2":"Vortex pairs with Trails 0.3. Full song \u2192 Full render, so the spin completes.",
     "3":"Ripple pairs with Card. Full song \u2192 Full render, the slow rotation needs the whole track.",
     "4":"Bloom pairs with Card for atmospheric promos \u2192 raise Swirl so the inks fuse.",
-    "5":"Nebula pairs behind Card or Disc \u2192 add Pulse for a slow breathing backdrop.",
+    "5":"Nebula pairs behind Card or Disc \u2192 add a touch of Glow for a dreamy backdrop.",
     "6":"Tunnel pairs with Aberration. Swirl above 0 rotates \u2192 on full songs use Full render.",
     "7":"Kaleido pairs with Trails 0.2. Full song \u2192 Full render for uninterrupted rotation.",
     "8":"Glitch pairs with a touch of Aberration \u2192 crank Speed for chaos.",
@@ -3345,10 +3519,12 @@ return { canvas: glc, active, render, setArtwork, ensureAudio, liveExport };
     "17":"VHS pairs great with Aberration around 0.2\u20130.3 \u2192 the full tape look.",
     "18":"Burn pairs with warm artworks \u2192 stack slight Aberration for retro film.",
     "19":"Halftone pairs with Card \u2192 editorial print promo at low Speed.",
-    "20":"Slices pairs with the Pulse dial \u2192 Scale sets the bar count.",
+    "20":"Slices pairs with a touch of Glow \u2192 Scale sets the bar count.",
     "21":"Dither pairs with low Speed \u2192 Swirl tints the ink from your palette.",
     "22":"ASCII pairs with Swirl up \u2192 moves from terminal green to palette ink.",
-    "23":"Twinspin pairs with Reverse + high Swirl \u2192 double-spin moire. Long songs \u2192 Full render."
+    "23":"Twinspin pairs with Reverse + high Swirl \u2192 double-spin moire. Long songs \u2192 Full render.",
+    "24":"Depth 3D pairs with Artwork off \u2192 Warp = depth, Swirl = orbit, Streak = focus blur. Long songs \u2192 Full render.",
+    "25":"Cymatics pairs with the music itself (the plate vibrates on the song) \u2192 Streak = line width, Scale = pattern complexity."
   };
 
   let gi = 0, hold = null, rot = null;
