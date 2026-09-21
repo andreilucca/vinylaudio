@@ -748,7 +748,7 @@
 </main>
 
 <footer>
-  <div class="footer-note">WEB v6.6 · 2026-09-21 · Fisheye removed · stable new catalog: Depth 3D, Cymatics, Topographic, CRT + finishing dials</div>
+  <div class="footer-note">WEB v6.8 · 2026-09-21 · Topographic fix 2: disc/card cast no shadow on the map (killed the scalloped arc from shadow × trails)</div>
 </footer>
 
 <div class="toast" id="toast"></div>
@@ -2356,6 +2356,12 @@ vec3 background(vec2 uv, float t, float aspect){
     su = clamp(su, 0.0, 1.0);
     vec3 aBlur = grade(texture2D(uTex, su, 3.5).rgb);      // smoothed terrain
     float l = dot(aBlur, LWt);
+    // terrain slope: contours only exist where the terrain actually climbs.
+    // On flat plateaus a whole region would cross a level at once and flash
+    // as one giant line → gate the lines by the local gradient instead.
+    float lgx = dot(grade(texture2D(uTex, clamp(su + vec2(0.012, 0.0), 0.0, 1.0), 3.5).rgb), LWt);
+    float lgy = dot(grade(texture2D(uTex, clamp(su + vec2(0.0, 0.012), 0.0, 1.0), 3.5).rgb), LWt);
+    float terr = smoothstep(0.0015, 0.010, length(vec2(lgx - l, lgy - l)));
     float N = 8.0 + 16.0*clamp(uScale, 0.3, 3.0);
     float lev = l*N - t*0.35*uDir;                         // the flowing routine
     float fq = fract(lev);
@@ -2366,7 +2372,7 @@ vec3 background(vec2 uv, float t, float aspect){
     vec3 artC = grade(texture2D(uTex, su).rgb);
     vec3 lineCol = mix(palette(0.50 + l*0.40), artC*1.5, clamp(uSwirl, 0.0, 1.0));
     col = uBgCol*0.40 + artC*0.06;                         // faint map base
-    col += lineCol*lineT*(0.55 + 0.55*major)*(0.55 + 0.85*uStreak);
+    col += lineCol*lineT*terr*(0.55 + 0.55*major)*(0.55 + 0.85*uStreak);
     col += palette(0.85)*smoothstep(0.78, 1.0, l)*0.14;    // summit glow
   }
 
@@ -2426,7 +2432,7 @@ void main(){
     vec2 dq = abs(q - vec2(0.0,-0.015)) - vec2(h);
     float sd = length(max(dq, 0.0)) + min(max(dq.x, dq.y), 0.0);
     float sh = smoothstep(h*0.35, 0.0, sd) * step(0.0, sd);
-    col = mix(col, col*0.30, sh*0.70);
+    if(uMode != 26) col = mix(col, col*0.30, sh*0.70);   // no cast shadow on the topo map
 
     float box = max(abs(q.x), abs(q.y));
     if(box < h + 0.004){
@@ -2452,7 +2458,7 @@ void main(){
     float R = uDiscR*(1.0 + kick*0.040);                     // breathes with the Beat dial
 
     float sh = smoothstep(R*1.30, R*0.92, length(q - vec2(0.0,-0.018)));
-    col = mix(col, col*0.30, sh*0.75);
+    if(uMode != 26) col = mix(col, col*0.30, sh*0.75);   // no cast shadow on the topo map
 
     if(r < R + 0.006){
       vec2 dLoc = q/R;
