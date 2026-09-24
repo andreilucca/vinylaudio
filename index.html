@@ -748,7 +748,7 @@
 </main>
 
 <footer>
-  <div class="footer-note">WEB v6.8 · 2026-09-21 · Topographic fix 2: disc/card cast no shadow on the map (killed the scalloped arc from shadow × trails)</div>
+  <div class="footer-note">WEB v6.9 · 2026-09-24 · Compression-friendly heavies: Grain reseeds at 10 Hz, CRT 37 Hz flicker removed, VHS snow calmed → fixes YouTube Auto stuck at 360p on heavy effects</div>
 </footer>
 
 <div class="toast" id="toast"></div>
@@ -2171,7 +2171,7 @@ vec3 background(vec2 uv, float t, float aspect){
     col = mix(vec3(l), col, 0.78);
     col = col*0.92 + 0.045;
     col *= 0.90 + 0.10*sin(uv.y*uRes.y*3.14159);
-    col += (hash(uv*uRes.xy*0.7 + floor(t*24.0))-0.5)*0.06*(0.4 + uSwirl);
+    col += (hash(uv*uRes.xy*0.7 + floor(t*8.0))-0.5)*0.035*(0.4 + uSwirl);   // snow: calmer reseed + amplitude, YouTube-friendly
     col = mix(col, vec3(hash(vec2(uv.x*13.0, floor(t*30.0)))), trk*0.45);
     col = mix(col, col.gbr*0.7 + 0.15, smoothstep(0.015, 0.004, uv.y)*0.8);
 
@@ -2398,7 +2398,7 @@ vec3 background(vec2 uv, float t, float aspect){
     vec3 tri = clamp(vec3(sin(px3*2.094), sin(px3*2.094 + 2.094), sin(px3*2.094 + 4.188))*0.30 + 0.85, 0.0, 1.0);
     float bar = fract(cuv.y*0.9 - t*0.12*uDir);          // the rolling routine
     float hum = exp(-pow((bar - 0.5)*4.0, 2.0));
-    float flick = 0.985 + 0.015*sin(uTime*37.0);
+    float flick = 1.0;                                   // flicker removed: it cost compression dearly for a 1.5% shimmer
     col = art*scan*flick;
     col *= tri;
     col *= 1.0 - hum*(0.10 + 0.20*uStreak);
@@ -2536,8 +2536,11 @@ void main(){
   col.g = texture2D(uScene, vUv).g;
   col.b = texture2D(uScene, vUv - o).b;
 
-  // Grain: animated film grain
-  col += (hashC(gl_FragCoord.xy*0.37 + fract(uTimeC)*vec2(41.7, 29.3)) - 0.5) * uGrain * 0.14;
+  // Grain: animated film grain. The pattern reseeds at 10 Hz instead of every
+  // frame: the eye still sees film boiling, but consecutive frames share the
+  // pattern, so platform re-encoders (YouTube) keep the HD rungs cheap to serve.
+  float gseedC = mod(floor(uTimeC*10.0), 97.0);
+  col += (hashC(gl_FragCoord.xy*0.37 + gseedC*vec2(41.7, 29.3)) - 0.5) * uGrain * 0.14;
 
   // Glow: highlights bleed softly, keeping their own color (screen blend)
   if(uGlow > 0.001){
